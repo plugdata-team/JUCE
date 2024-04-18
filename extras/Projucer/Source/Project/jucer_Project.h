@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -41,7 +50,7 @@ namespace ProjectMessages
 
         DECLARE_ID (projectMessages);
 
-        DECLARE_ID (incompatibleLicense);
+        DECLARE_ID (personalLicense);
         DECLARE_ID (cppStandard);
         DECLARE_ID (moduleNotFound);
         DECLARE_ID (jucePath);
@@ -63,15 +72,17 @@ namespace ProjectMessages
 
     inline Identifier getTypeForMessage (const Identifier& message)
     {
-        static Identifier warnings[] = { Ids::incompatibleLicense, Ids::cppStandard, Ids::moduleNotFound,
-                                         Ids::jucePath, Ids::jucerFileModified, Ids::missingModuleDependencies,
+        static Identifier warnings[] = { Ids::cppStandard, Ids::moduleNotFound, Ids::jucePath,
+                                         Ids::jucerFileModified, Ids::missingModuleDependencies,
                                          Ids::oldProjucer, Ids::pluginCodeInvalid, Ids::manufacturerCodeInvalid,
                                          Ids::deprecatedExporter };
 
         if (std::find (std::begin (warnings), std::end (warnings), message) != std::end (warnings))
             return Ids::warning;
 
-        if (message == Ids::newVersionAvailable)
+        static Identifier notifications[] = { Ids::personalLicense, Ids::newVersionAvailable };
+
+        if (std::find (std::begin (notifications), std::end (notifications), message) != std::end (notifications))
             return Ids::notification;
 
         jassertfalse;
@@ -80,7 +91,6 @@ namespace ProjectMessages
 
     inline String getTitleForMessage (const Identifier& message)
     {
-        if (message == Ids::incompatibleLicense)        return "Incompatible License and Splash Screen Setting";
         if (message == Ids::cppStandard)                return "C++ Standard";
         if (message == Ids::moduleNotFound)             return "Module Not Found";
         if (message == Ids::jucePath)                   return "JUCE Path";
@@ -91,6 +101,7 @@ namespace ProjectMessages
         if (message == Ids::pluginCodeInvalid)          return "Invalid Plugin Code";
         if (message == Ids::manufacturerCodeInvalid)    return "Invalid Manufacturer Code";
         if (message == Ids::deprecatedExporter)         return "Deprecated Exporter";
+        if (message == Ids::personalLicense)            return "Personal Licence";
 
         jassertfalse;
         return {};
@@ -98,7 +109,6 @@ namespace ProjectMessages
 
     inline String getDescriptionForMessage (const Identifier& message)
     {
-        if (message == Ids::incompatibleLicense)        return "Save and export is disabled.";
         if (message == Ids::cppStandard)                return "Module(s) have a higher C++ standard requirement than the project.";
         if (message == Ids::moduleNotFound)             return "Module(s) could not be found at the specified paths.";
         if (message == Ids::jucePath)                   return "The path to your JUCE folder is incorrect.";
@@ -109,6 +119,7 @@ namespace ProjectMessages
         if (message == Ids::pluginCodeInvalid)          return "The plugin code should be exactly four characters in length.";
         if (message == Ids::manufacturerCodeInvalid)    return "The manufacturer code should be exactly four characters in length.";
         if (message == Ids::deprecatedExporter)         return "The project includes a deprecated exporter.";
+        if (message == Ids::personalLicense)            return "You are using a Personal licence. Sign in to activate a commercial licence.";
 
         jassertfalse;
         return {};
@@ -280,9 +291,6 @@ public:
     int getMaxBinaryFileSize() const                     { return maxBinaryFileSizeValue.get(); }
     bool shouldIncludeBinaryInJuceHeader() const         { return includeBinaryDataInJuceHeaderValue.get(); }
     String getBinaryDataNamespaceString() const          { return binaryDataNamespaceValue.get(); }
-
-    bool shouldDisplaySplashScreen() const               { return displaySplashScreenValue.get(); }
-    String getSplashScreenColourString() const           { return splashScreenColourValue.get(); }
 
     static StringArray getCppStandardStrings()           { return { "C++17", "C++20", "Use Latest" }; }
     static Array<var> getCppStandardVars()               { return { "17",    "20",    "latest" }; }
@@ -601,7 +609,6 @@ public:
     std::vector<ProjectMessages::MessageAction> getMessageActions (const Identifier& message);
 
     //==============================================================================
-    bool hasIncompatibleLicenseTypeAndSplashScreenSetting() const;
     bool isFileModificationCheckPending() const;
     bool isSaveAndExportDisabled() const;
 
@@ -644,9 +651,9 @@ private:
     ValueTree projectRoot  { Ids::JUCERPROJECT };
 
     ValueTreePropertyWithDefault projectNameValue, projectUIDValue, projectLineFeedValue, projectTypeValue, versionValue, bundleIdentifierValue, companyNameValue,
-                                 companyCopyrightValue, companyWebsiteValue, companyEmailValue, displaySplashScreenValue, splashScreenColourValue, cppStandardValue,
-                                 headerSearchPathsValue, preprocessorDefsValue, userNotesValue, maxBinaryFileSizeValue, includeBinaryDataInJuceHeaderValue, binaryDataNamespaceValue,
-                                 compilerFlagSchemesValue, postExportShellCommandPosixValue, postExportShellCommandWinValue, useAppConfigValue, addUsingNamespaceToJuceHeader;
+                                 companyCopyrightValue, companyWebsiteValue, companyEmailValue, cppStandardValue, headerSearchPathsValue, preprocessorDefsValue,
+                                 userNotesValue, maxBinaryFileSizeValue, includeBinaryDataInJuceHeaderValue, binaryDataNamespaceValue, compilerFlagSchemesValue,
+                                 postExportShellCommandPosixValue, postExportShellCommandWinValue, useAppConfigValue, addUsingNamespaceToJuceHeader;
 
     ValueTreePropertyWithDefault pluginFormatsValue, pluginNameValue, pluginDescriptionValue, pluginManufacturerValue, pluginManufacturerCodeValue,
                                  pluginCodeValue, pluginChannelConfigsValue, pluginCharacteristicsValue, pluginAUExportPrefixValue, pluginAAXIdentifierValue,

@@ -1,5 +1,321 @@
 # JUCE breaking changes
 
+# Version 8.0.0
+
+## Change
+
+The virtual functions LowLevelGraphicsContext::drawGlyph() and drawTextLayout()
+have been removed.
+
+**Possible Issues**
+
+Classes overriding these functions will fail to compile.
+
+**Workaround**
+
+Replace drawGlyph() with drawGlyphs(), which draws several glyphs at once.
+Remove implementations of drawTextLayout().
+
+**Rationale**
+
+On Windows and macOS, drawing several glyphs at once is faster than drawing
+glyphs one-at-a-time. The new API is more general, and allows for more
+performant text rendering.
+
+
+## Change
+
+JUCE widgets now query the LookAndFeel to determine the TypefaceMetricsKind to
+use. By default, the LookAndFeel will specify the "portable" metrics kind,
+which may change the size of text in JUCE widgets, depending on the font and
+platform.
+
+**Possible Issues**
+
+Using "portable" metrics may cause text to render at a different scale when
+compared to the old "legacy" metrics.
+
+**Workaround**
+
+If you want to restore the old metrics, e.g. to maintain the same text scaling
+in an existing app, you can override LookAndFeel::getDefaultMetricsKind() on
+each LookAndFeel in your application, to return the "legacy" metrics kind.
+
+**Rationale**
+
+Using portable font metrics streamlines the development experience when working
+on applications that must run on multiple platforms. Using portable metrics by
+default means that new projects will benefit from this improved cross-platform
+behaviour from the outset.
+
+
+## Change
+
+Signatures of several Typeface member functions have been updated to accept a
+new TypefaceMetricsKind argument. The getAscent(), getDescent(), and
+getHeightToPointsFactor() members have been replaced by getMetrics(), which
+returns the same metrics information all at once.
+
+Font instances now store a metrics kind internally. Calls to Font::getAscent()
+and other functions that query font metrics will always use the Font's stored
+metrics kind. Calls to Font::operator== will take the metrics kinds into
+account, so two fonts that differ only in their stored metrics kind will
+be considered non-equal.
+
+**Possible Issues**
+
+Code that calls any of the affected Typeface functions will fail to compile.
+Code that compares Font instances may behave differently if the compared font
+instances use mismatched metrics kinds.
+
+**Workaround**
+
+Specify the kind of metrics you require when calling Typeface member functions.
+Call getMetrics() instead of the old individual getters for metrics. Review
+calls to Font::operator==, especially where comparing against a
+default-constructed Font.
+
+**Rationale**
+
+Until now, the same font data could produce different results from
+Typeface::getAscent() et al. depending on the platform. The updated interfaces
+allow the user to choose between the old-style non-portable metrics (to avoid
+layout changes in existing projects), and portable metrics (more suitable for
+new or cross-platform projects).
+Most users will fetch metrics from Font objects rather than from the Typeface.
+Font will continue to return non-portable metrics when constructed using the
+old (deprecated) constructors. Portable metrics can be enabled by switching to
+the new Font constructor that takes a FontOptions argument. See the
+documentation for TypefaceMetricsKind for more details.
+
+
+## Change
+
+Typeface::getOutlineForGlyph now returns void instead of bool.
+
+**Possible Issues**
+
+Code that checks the result of this function will fail to compile.
+
+**Workaround**
+
+Omit any checks against the result of this function.
+
+**Rationale**
+
+This function can no longer fail. It may still output an empty path if the
+requested glyph isn't present in the typeface.
+
+
+## Change
+
+CustomTypeface has been removed.
+
+**Possible Issues**
+
+Code that interacts with CustomTypeface will fail to compile.
+
+**Workaround**
+
+There is currently no workaround. If you were using CustomTypeface to
+implement typeface fallback, there is a new API,
+Font::findSuitableFontForText, that you can use to locate fonts capable
+of rendering given strings.
+
+**Rationale**
+
+The CustomTypeface class is difficult/impossible to support with the new
+HarfBuzz Typeface implementation. New support for automatic font fallback
+will be introduced in JUCE 8, and this will obviate much of the need for
+CustomTypeface.
+
+>>>>>>> 94454123d6 (Typeface: Implement platform typefaces using Harfbuzz hb_font_t)
+
+## Change
+
+The Android implementations of Typeface::getStringWidth(), getGlyphPositions(),
+and getEdgeTableForGlyph() have been updated to return correctly-normalised
+results. The effect of this change is to change (in practice, slightly reduce)
+the size at which many fonts will render on Android.
+
+**Possible Issues**
+
+The scale of some text on Android may change.
+
+**Workaround**
+
+For font sizes specified in 'JUCE units' by passing a value to the Font
+constructor or to Font::setHeight, instead pass the same size to
+Font::withPointHeight and use the returned Font object.
+
+**Rationale**
+
+The behaviour of the Typeface member functions did not match the documented
+behaviour, or the behaviour on other platforms. This could make it difficult to
+create interfaces that rendered as expected on multiple platforms.
+
+The upcoming unicode support work will unify much of the font-handling and
+text-shaping machinery in JUCE. Ensuring that all platforms have consistent
+behaviour before and after the unicode upgrade will make it easier to implement
+and verify those changes.
+
+
+## Change
+
+The JavascriptEngine::callFunctionObject() function has been removed.
+
+**Possible Issues**
+
+Projects that used the removed function will fail to compile.
+
+**Workaround**
+
+Use the JSObjectCursor::invokeMethod() function to call functions beyond the
+root scope.
+
+**Rationale**
+
+The JavascriptEngine's underlying implementation has been changed, and the
+DynamicObject type is no longer used for the internal implementation of the
+engine. The JSObjectCursor class provides a way to navigate the Javascript
+object graph without depending on the type of the engine's internal
+implementation.
+
+
+## Change
+
+The JavascriptEngine::getRootObjectProperties() function returns its result by
+value instead of const reference.
+
+**Possible Issues**
+
+Projects that captured the returned value by reference and depended on it being
+valid for more than the current function's scope may stop working correctly.
+
+**Workaround**
+
+If the return value is used beyond the calling function's scope it must be
+stored in a value.
+
+**Rationale**
+
+The JavascriptEngine's underlying implementation has been changed, and the
+NamedValueSet type is no longer used in its internal representation. Hence a new
+NamedValueSet object is created during the getRootObjectProperties() function
+call.
+
+
+## Change
+
+JavascriptEngine::evaluate() will now return a void variant if the passed in
+code successfully evaluates to void, and only return an undefined variant if
+an error occurred during evaluation. The previous implementation would return
+var::undefined() in both cases.
+
+**Possible Issues**
+
+Projects that depended on the returned value of JavascriptEngine::evaluate() to
+be undefined even during successful evaluation may fail to work correctly.
+
+**Workaround**
+
+Code paths that depend on an undefined variant to be returned should be checked
+if they aren't used exclusively to determine evaluation failure. In failed
+cases the JavascriptEngine::evaluate() function will continue to return
+var::undefined().
+
+**Rationale**
+
+When a Javascript expression successfully evaluates to void, and when it fails
+evaluation due to timeout or syntax errors are distinctly different situations
+and this should be reflected on the value returned.
+
+
+## Change
+
+The `WebBrowserComponent::pageAboutToLoad()` function on Android now only
+receives callbacks for entire page navigation events, as opposed to every
+resource fetch operation. Returning `false` from the function now prevents
+this operation from taking any effect, as opposed to producing potentially
+visible error messages.
+
+**Possible Issues**
+
+Code that previously depended on the ability to allow or fail resource
+requests on Android may fail to work correctly.
+
+**Workaround**
+
+Navigating to webpages can still be prevented by returning `false` from this
+function, similarly to other platforms.
+
+Resource requests sent to the domain returned by
+`WebBrowserComponent::getResourceProviderRoot()` can be served or rejected by
+using the `WebBrowserComponent::ResourceProvider` feature.
+
+Resource requests sent to other domains can not be controlled on Android
+anymore.
+
+**Rationale**
+
+Prior to this change there was no way to reject a page load operation without
+any visible effect, like there was on the other platforms. The fine grained per
+resource control was not possible on other platforms. This change makes the
+Android implementation more consistent with the other platforms.
+
+
+## Change
+
+The minimum supported compilers and deployment targets have been updated, with
+the new minimums listed in the top level [README](README.md).
+
+MinGW is no longer supported.
+
+**Possible Issues**
+
+You may no longer be able to build JUCE projects or continue targeting older
+platforms.
+
+**Workaround**
+
+If you cannot build your project, update your build machine to a more modern
+operating system and compiler.
+
+There is no workaround to target platforms that predate the new minimum
+deployment targets.
+
+**Rationale**
+
+New features of JUCE require both more modern compilers and deployment targets.
+
+The amount of investment MinGW support requires is unsustainable.
+
+
+## Change
+
+The [JUCE End User Licence Agreement](https://juce.com/legal/juce-8-licence/)
+has been updated and all JUCE modules are now dual-licensed under the AGPLv3 and
+the JUCE licence. Previously the juce_audio_basics, juce_audio_devices,
+juce_core and juce_events modules were licensed under the ISC licence.
+
+Please read the End User Licence Agreement for full details.
+
+**Possible Issues**
+
+There may be new restrictions on how you can use JUCE.
+
+**Workaround**
+
+N/A
+
+**Rationale**
+
+The new JUCE End User Licence Agreement is much easier to understand, and has a
+much more generous personal tier. The move from ISC to AGPLv3/JUCE simplifies
+the licensing situation and encourages the creation of more open source software
+without impacting personal use of the JUCE framework.
+
+
 # Version 7.0.10
 
 ## Change
