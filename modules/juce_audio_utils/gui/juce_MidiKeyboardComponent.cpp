@@ -350,96 +350,6 @@ void MidiKeyboardComponent::drawKeyboardBackground (Graphics& g, Rectangle<float
     }
 }
 
-void MidiKeyboardComponent::drawWhiteNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
-                                           bool isDown, bool isOver, Colour lineColour, Colour textColour)
-{
-    auto c = Colours::transparentWhite;
-
-    if (isDown)  c = findColour (keyDownOverlayColourId);
-    if (isOver)  c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
-
-    g.setColour (c);
-    g.fillRect (area);
-
-    const auto currentOrientation = getOrientation();
-
-    auto text = getWhiteNoteText (midiNoteNumber);
-
-    if (text.isNotEmpty())
-    {
-        auto fontHeight = jmin (12.0f, getKeyWidth() * 0.9f);
-
-        g.setColour (textColour);
-        g.setFont (Font (fontHeight).withHorizontalScale (0.8f));
-
-        switch (currentOrientation)
-        {
-            case horizontalKeyboard:            g.drawText (text, area.withTrimmedLeft (1.0f).withTrimmedBottom (2.0f), Justification::centredBottom, false); break;
-            case verticalKeyboardFacingLeft:    g.drawText (text, area.reduced (2.0f), Justification::centredLeft,   false); break;
-            case verticalKeyboardFacingRight:   g.drawText (text, area.reduced (2.0f), Justification::centredRight,  false); break;
-            default: break;
-        }
-    }
-
-    if (! lineColour.isTransparent())
-    {
-        g.setColour (lineColour);
-
-        switch (currentOrientation)
-        {
-            case horizontalKeyboard:            g.fillRect (area.withWidth (1.0f)); break;
-            case verticalKeyboardFacingLeft:    g.fillRect (area.withHeight (1.0f)); break;
-            case verticalKeyboardFacingRight:   g.fillRect (area.removeFromBottom (1.0f)); break;
-            default: break;
-        }
-
-        if (midiNoteNumber == getRangeEnd())
-        {
-            switch (currentOrientation)
-            {
-                case horizontalKeyboard:            g.fillRect (area.expanded (1.0f, 0).removeFromRight (1.0f)); break;
-                case verticalKeyboardFacingLeft:    g.fillRect (area.expanded (0, 1.0f).removeFromBottom (1.0f)); break;
-                case verticalKeyboardFacingRight:   g.fillRect (area.expanded (0, 1.0f).removeFromTop (1.0f)); break;
-                default: break;
-            }
-        }
-    }
-}
-
-void MidiKeyboardComponent::drawBlackNote (int /*midiNoteNumber*/, Graphics& g, Rectangle<float> area,
-                                           bool isDown, bool isOver, Colour noteFillColour)
-{
-    auto c = noteFillColour;
-
-    if (isDown)  c = c.overlaidWith (findColour (keyDownOverlayColourId));
-    if (isOver)  c = c.overlaidWith (findColour (mouseOverKeyOverlayColourId));
-
-    g.setColour (c);
-    g.fillRect (area);
-
-    if (isDown)
-    {
-        g.setColour (noteFillColour);
-        g.drawRect (area);
-    }
-    else
-    {
-        g.setColour (c.brighter());
-        auto sideIndent = 1.0f / 8.0f;
-        auto topIndent = 7.0f / 8.0f;
-        auto w = area.getWidth();
-        auto h = area.getHeight();
-
-        switch (getOrientation())
-        {
-            case horizontalKeyboard:            g.fillRect (area.reduced (w * sideIndent, 0).removeFromTop   (h * topIndent)); break;
-            case verticalKeyboardFacingLeft:    g.fillRect (area.reduced (0, h * sideIndent).removeFromRight (w * topIndent)); break;
-            case verticalKeyboardFacingRight:   g.fillRect (area.reduced (0, h * sideIndent).removeFromLeft  (w * topIndent)); break;
-            default: break;
-        }
-    }
-}
-
 String MidiKeyboardComponent::getWhiteNoteText (int midiNoteNumber)
 {
     if (midiNoteNumber % 12 == 0)
@@ -458,13 +368,13 @@ void MidiKeyboardComponent::colourChanged()
 void MidiKeyboardComponent::drawWhiteKey (int midiNoteNumber, Graphics& g, Rectangle<float> area)
 {
     drawWhiteNote (midiNoteNumber, g, area, state.isNoteOnForChannels (midiInChannelMask, midiNoteNumber),
-                   mouseOverNotes.contains (midiNoteNumber), findColour (keySeparatorLineColourId), findColour (textLabelColourId));
+                   mouseOverNotes.contains (midiNoteNumber));
 }
 
 void MidiKeyboardComponent::drawBlackKey (int midiNoteNumber, Graphics& g, Rectangle<float> area)
 {
     drawBlackNote (midiNoteNumber, g, area, state.isNoteOnForChannels (midiInChannelMask, midiNoteNumber),
-                   mouseOverNotes.contains (midiNoteNumber), findColour (blackNoteColourId));
+                   mouseOverNotes.contains (midiNoteNumber));
 }
 
 //==============================================================================
