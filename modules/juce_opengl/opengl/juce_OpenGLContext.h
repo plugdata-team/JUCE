@@ -76,6 +76,10 @@ public:
     */
     void attachTo (Component&);
 
+    /**  Hides the openGL context, so you can do off-screen rendering
+     */
+    void setVisible(bool shouldBeVisible);
+    
     /** Detaches the context from its target component and deletes any native resources.
         If the context has not been attached, this will do nothing. Otherwise, it will block
         until the context and its thread have been cleaned up.

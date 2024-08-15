@@ -627,6 +627,24 @@ public:
     {
         detach();
     }
+    
+    void setVisible(bool shouldBeVisible)
+    {
+        if(shouldBeVisible){
+            isHidden = false;
+            start();
+            componentMovedOrResized(true, true);
+            componentVisibilityChanged();
+        }
+        else {
+            isHidden = true;
+            auto& comp = *getComponent();
+            stop();
+            if (isAttached (comp)) {
+                context.nativeContext->updateWindowPosition(Rectangle<int>(0, 0, 0, 0));
+            }
+        }
+    }
 
     void detach()
     {
@@ -644,8 +662,9 @@ public:
             componentVisibilityChanged();
 
         if (comp.getWidth() > 0 && comp.getHeight() > 0
-             && context.nativeContext != nullptr)
+             && context.nativeContext != nullptr && !context.attachment->isHidden)
         {
+            
             if (auto* c = CachedImage::get (comp))
                 c->handleResize();
 
@@ -695,6 +714,7 @@ public:
 
 private:
     OpenGLContext& context;
+    bool isHidden = false;
 
     bool canBeAttached (const Component& comp) noexcept
     {
@@ -842,6 +862,14 @@ void OpenGLContext::attachTo (Component& component)
     {
         detach();
         attachment.reset (new Attachment (*this, component));
+    }
+}
+
+void OpenGLContext::setVisible(bool shouldBeVisible)
+{
+    if (auto* a = attachment.get())
+    {
+        a->setVisible(shouldBeVisible); // must detach before nulling our pointer
     }
 }
 

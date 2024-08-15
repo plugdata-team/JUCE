@@ -205,13 +205,15 @@ public:
         lastSwapTime = now;
     }
 
-    void updateWindowPosition (Rectangle<int>)
+    void updateWindowPosition (Rectangle<int> r)
     {
         if (auto* peer = owner.getTopLevelComponent()->getPeer())
         {
             const auto newArea = peer->getAreaCoveredBy (owner);
-
-            if (convertToRectInt ([view frame]) != newArea)
+            
+            if(r.isEmpty())
+                [view setFrame: makeNSRect(r)];
+            else if (convertToRectInt ([view frame]) != newArea)
                 [view setFrame: makeNSRect (newArea)];
         }
     }
