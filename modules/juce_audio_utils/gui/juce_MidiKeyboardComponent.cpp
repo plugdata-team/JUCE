@@ -295,59 +295,6 @@ void MidiKeyboardComponent::focusLost (FocusChangeType)
 //==============================================================================
 void MidiKeyboardComponent::drawKeyboardBackground (Graphics& g, Rectangle<float> area)
 {
-    g.fillAll (findColour (whiteNoteColourId));
-
-    auto width = area.getWidth();
-    auto height = area.getHeight();
-    auto currentOrientation = getOrientation();
-    Point<float> shadowGradientStart, shadowGradientEnd;
-
-    if (currentOrientation == verticalKeyboardFacingLeft)
-    {
-        shadowGradientStart.x = width - 1.0f;
-        shadowGradientEnd.x   = width - 5.0f;
-    }
-    else if (currentOrientation == verticalKeyboardFacingRight)
-    {
-        shadowGradientEnd.x = 5.0f;
-    }
-    else
-    {
-        shadowGradientEnd.y = 5.0f;
-    }
-
-    auto keyboardWidth = getRectangleForKey (getRangeEnd()).getRight();
-    auto shadowColour = findColour (shadowColourId);
-
-    if (! shadowColour.isTransparent())
-    {
-        g.setGradientFill ({ shadowColour, shadowGradientStart,
-                             shadowColour.withAlpha (0.0f), shadowGradientEnd,
-                             false });
-
-        switch (currentOrientation)
-        {
-            case horizontalKeyboard:            g.fillRect (0.0f, 0.0f, keyboardWidth, 5.0f); break;
-            case verticalKeyboardFacingLeft:    g.fillRect (width - 5.0f, 0.0f, 5.0f, keyboardWidth); break;
-            case verticalKeyboardFacingRight:   g.fillRect (0.0f, 0.0f, 5.0f, keyboardWidth); break;
-            default: break;
-        }
-    }
-
-    auto lineColour = findColour (keySeparatorLineColourId);
-
-    if (! lineColour.isTransparent())
-    {
-        g.setColour (lineColour);
-
-        switch (currentOrientation)
-        {
-            case horizontalKeyboard:            g.fillRect (0.0f, height - 1.0f, keyboardWidth, 1.0f); break;
-            case verticalKeyboardFacingLeft:    g.fillRect (0.0f, 0.0f, 1.0f, keyboardWidth); break;
-            case verticalKeyboardFacingRight:   g.fillRect (width - 1.0f, 0.0f, 1.0f, keyboardWidth); break;
-            default: break;
-        }
-    }
 }
 
 String MidiKeyboardComponent::getWhiteNoteText (int midiNoteNumber)

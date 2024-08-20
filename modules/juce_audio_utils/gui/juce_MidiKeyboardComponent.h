@@ -244,7 +244,7 @@ public:
 
 private:
     //==============================================================================
-    void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override final;
+    void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override;
     void drawWhiteKey (int midiNoteNumber, Graphics& g, Rectangle<float> area) override final;
     void drawBlackKey (int midiNoteNumber, Graphics& g, Rectangle<float> area) override final;
 
