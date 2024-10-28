@@ -2321,7 +2321,9 @@ public:
 
         /** Copies another pointer to this one. */
         SafePointer& operator= (ComponentType* newComponent)  { weakRef = newComponent; return *this; }
-
+        
+        Component* get() const noexcept          { return weakRef.get(); }
+  
         /** Returns the component that this pointer refers to, or null if the component no longer exists. */
         ComponentType* getComponent() const noexcept          { return dynamic_cast<ComponentType*> (weakRef.get()); }
 
