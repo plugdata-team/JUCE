@@ -630,13 +630,12 @@ public:
     
     void setVisible(bool shouldBeVisible)
     {
-        if(shouldBeVisible){
+        if(shouldBeVisible && isHidden){
             isHidden = false;
             start();
             componentMovedOrResized(true, true);
             componentVisibilityChanged();
-        }
-        else {
+        } else if (!shouldBeVisible && !isHidden) {
             isHidden = true;
             auto& comp = *getComponent();
             stop();
