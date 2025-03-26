@@ -2147,12 +2147,37 @@ bool TextEditor::keyPressed (const KeyPress& key)
                      && key != KeyPress ('a', ModifierKeys::commandModifier, 0))
         return false;
 
-    if(!getHighlightedRegion().isEmpty()) {
+    if(key.getModifiers().isShiftDown())
+    {
+        if (key.isKeyCode (KeyPress::leftKey))  {
+            if(getHighlightedRegion().getStart() == getCaretPosition())
+            {
+                setHighlightedRegion(getHighlightedRegion().withStart(getCaretPosition() - 1));
+            }
+            else if(getHighlightedRegion().getEnd() == getCaretPosition()) {
+                setHighlightedRegion(getHighlightedRegion().withEnd(getCaretPosition() - 1));
+            }
+            
+            return true;
+        }
+        else if (key.isKeyCode (KeyPress::rightKey)) {
+            if(getHighlightedRegion().getStart() == getCaretPosition())
+            {
+                setHighlightedRegion(getHighlightedRegion().withStart(getCaretPosition() + 1));
+            }
+            else if(getHighlightedRegion().getEnd() == getCaretPosition())
+            {
+                setHighlightedRegion(getHighlightedRegion().withEnd(getCaretPosition() + 1));
+            }
+            return true;
+        }
+    }
+    else if(!getHighlightedRegion().isEmpty()) {
         if (key.isKeyCode (KeyPress::leftKey))  {
             setCaretPosition(getHighlightedRegion().getStart());
             return true;
         }
-        if (key.isKeyCode (KeyPress::rightKey)) {
+        else if (key.isKeyCode (KeyPress::rightKey)) {
             setCaretPosition(getHighlightedRegion().getEnd());
             return true;
         }
