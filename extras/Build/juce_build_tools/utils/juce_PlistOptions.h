@@ -56,6 +56,9 @@ namespace juce::build_tools
         bool shouldAddStoryboardToProject       = false;
         String storyboardName;
 
+        bool localNetworkPermissionEnabled      = false;
+        String localNetworkPermissionText;
+
         File iconFile;
         String projectName;
         String marketingVersion;
