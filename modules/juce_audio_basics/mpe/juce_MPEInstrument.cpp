@@ -159,7 +159,6 @@ void MPEInstrument::setLegacyModePitchbendRange (int pitchbendRange)
 {
     jassert (pitchbendRange >= 0 && pitchbendRange <= 96);
 
-    releaseAllNotes();
     const ScopedLock sl (lock);
 
     if (legacyMode.pitchbendRange != pitchbendRange)
