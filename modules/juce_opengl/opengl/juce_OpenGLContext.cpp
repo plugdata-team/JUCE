@@ -311,9 +311,11 @@ public:
                 // Transform is only accessed when the message manager is locked
                 transform = AffineTransform::scale ((float) newArea.getWidth()  / (float) localBounds.getWidth(),
                                                     (float) newArea.getHeight() / (float) localBounds.getHeight());
-
-                nativeContext->updateWindowPosition (peer->getAreaCoveredBy (component));
-                invalidateAll();
+                
+                if(context.isVisible()) {
+                    nativeContext->updateWindowPosition (peer->getAreaCoveredBy (component));
+                    invalidateAll();
+                }
             });
         }
     }
@@ -643,6 +645,14 @@ public:
                 context.nativeContext->updateWindowPosition(Rectangle<int>(0, 0, 0, 0));
             }
         }
+#if JUCE_MAC
+        context.nativeContext->setVisible(shouldBeVisible);
+#endif
+    }
+    
+    bool isVisible()
+    {
+        return !isHidden;
     }
 
     void detach()
@@ -871,6 +881,16 @@ void OpenGLContext::setVisible(bool shouldBeVisible)
     {
         a->setVisible(shouldBeVisible); // must detach before nulling our pointer
     }
+}
+
+bool OpenGLContext::isVisible()
+{
+    if (auto* a = attachment.get())
+    {
+        return a->isVisible();
+    }
+
+    return true;
 }
 
 void OpenGLContext::detach()

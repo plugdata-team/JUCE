@@ -73,6 +73,11 @@ public:
         [view setOpenGLContext: nil];
         [view release];
     }
+    
+    void setVisible(bool visible)
+    {
+        [view setHidden: !visible];
+    }
 
     static std::vector<NSOpenGLPixelFormatAttribute> createAttribs (OpenGLVersion version,
                                                                     const OpenGLPixelFormat& pixFormat,
