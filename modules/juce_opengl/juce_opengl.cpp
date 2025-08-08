@@ -86,7 +86,10 @@
     If you want to install OpenGL support, the packages to get are "mesa-common-dev"
     and "freeglut3-dev".
  */
- #include <GL/glx.h>
+#include <GL/glx.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <wayland-egl.h>
 
 //==============================================================================
 #elif JUCE_MAC
@@ -276,8 +279,8 @@ JUCE_IMPL_WGL_EXTENSION_FUNCTION (wglCreateContextAttribsARB)
 
 #elif JUCE_LINUX || JUCE_BSD
  #include <juce_gui_basics/native/juce_ScopedWindowAssociation_linux.h>
- #include "native/juce_OpenGL_linux.h"
-
+ #include "native/juce_OpenGL_x11.h"
+ #include "native/juce_OpenGL_wayland.h"
 #elif JUCE_ANDROID
  #include "native/juce_OpenGL_android.h"
 
@@ -285,3 +288,5 @@ JUCE_IMPL_WGL_EXTENSION_FUNCTION (wglCreateContextAttribsARB)
 
 #include "opengl/juce_OpenGLContext.cpp"
 #include "utils/juce_OpenGLAppComponent.cpp"
+
+

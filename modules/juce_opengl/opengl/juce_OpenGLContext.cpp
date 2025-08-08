@@ -129,8 +129,19 @@ public:
         : context (c),
           component (comp)
     {
+#if JUCE_LINUX || JUCE_BSD
+        if(WaylandWindowSystem::getInstance()->isWaylandAvailable()) {
+            nativeContext.reset (new WaylandNativeContext (component, pixFormat, contextToShare,
+                                                c.useMultisampling, c.versionRequired));
+        }
+        else {
+            nativeContext.reset (new X11NativeContext (component, pixFormat, contextToShare,
+                                                c.useMultisampling, c.versionRequired));    
+        }
+#else
         nativeContext.reset (new NativeContext (component, pixFormat, contextToShare,
                                                 c.useMultisampling, c.versionRequired));
+#endif
 
         if (nativeContext->createdOk())
             context.nativeContext = nativeContext.get();
@@ -950,9 +961,13 @@ bool OpenGLContext::isActive() const noexcept
 
 void OpenGLContext::deactivateCurrentContext()
 {
-    NativeContext::deactivateCurrentContext();
+    if (currentThreadActiveContext && currentThreadActiveContext.get()->nativeContext)
+    {
+        currentThreadActiveContext.get()->nativeContext->deactivateCurrentContext();
+    }
     currentThreadActiveContext.get() = nullptr;
 }
+
 
 void OpenGLContext::swapBuffers()
 {
@@ -1273,3 +1288,5 @@ void OpenGLContext::NativeContext::surfaceDestroyed (LocalRef<jobject>)
 #endif
 
 } // namespace juce
+
+

@@ -100,6 +100,12 @@ private:
 //==============================================================================
 void SystemTrayIconComponent::setIconImage (const Image& colourImage, const Image&)
 {
+    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    {
+        // I think this can be implemented with dbus, which would make it work for both x11 and wayland
+        return;
+    }
+    
     pimpl.reset();
 
     if (colourImage.isValid())

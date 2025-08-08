@@ -385,8 +385,19 @@ namespace juce
   #undef SIZEOF
   #undef KeyPress
 
+  #include <wayland-util.h>
+  #include <xkbcommon/xkbcommon.h>
+  #include <linux/input-event-codes.h>
+  
   #include "native/juce_XWindowSystem_linux.h"
   #include "native/juce_XSymbols_linux.h"
+  #include "native/juce_WaylandSymbols.h"
+  #include "native/juce_WaylandWindowSystem.h"
+
+  #include <wayland-cursor.h>
+  #include <libdecor-0/libdecor.h>
+    
+
  #endif
 #endif
 

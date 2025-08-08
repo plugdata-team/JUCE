@@ -323,6 +323,10 @@ public:
     //==============================================================================
    #ifndef DOXYGEN
     class NativeContext;
+#if JUCE_LINUX
+    class X11NativeContext;
+    class WaylandNativeContext;
+#endif
    #endif
 
 private:
