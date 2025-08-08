@@ -1463,7 +1463,8 @@ static std::unordered_map<LinuxComponentPeer*, X11DragState> dragAndDropStateMap
 
 XWindowSystem::XWindowSystem()
 {
-    xIsAvailable = X11Symbols::getInstance()->loadAllSymbols();
+    // If we load wayland without loadAllSymbols, it crashes for some reason
+    xIsAvailable = X11Symbols::getInstance()->loadAllSymbols() && !WaylandWindowSystem::getInstance()->isWaylandAvailable();
 
     if (! xIsAvailable)
         return;
@@ -4034,3 +4035,4 @@ Image createSnapshotOfNativeWindow (void* window)
 }
 
 } // namespace juce
+

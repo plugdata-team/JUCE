@@ -46,6 +46,14 @@ void ComponentDragger::startDraggingComponent (Component* const componentToDrag,
 
     if (componentToDrag != nullptr)
         mouseDownWithinTarget = e.getEventRelativeTo (componentToDrag).getMouseDownPosition();
+    
+#if JUCE_LINUX || JUCE_BSD
+    // Host managed window drag for Linux
+    if(componentToDrag->isOnDesktop())
+    {
+        componentToDrag->getPeer()->startHostManagedResize(mouseDownWithinTarget, ResizableBorderComponent::Zone(0));
+    }
+#endif
 }
 
 void ComponentDragger::dragComponent (Component* const componentToDrag, const MouseEvent& e,

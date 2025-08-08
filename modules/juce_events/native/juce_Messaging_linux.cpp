@@ -35,6 +35,11 @@
 namespace juce
 {
 
+namespace WaylandMessageLoop
+{
+void prepareWaylandFd();
+void processWaylandFd();
+}
 //==============================================================================
 class InternalMessageQueue
 {
@@ -43,7 +48,7 @@ public:
     {
         [[maybe_unused]] auto err = ::socketpair (AF_LOCAL, SOCK_STREAM, 0, msgpipe);
         jassert (err == 0);
-
+        
         LinuxEventLoop::registerFdCallback (getReadHandle(),
                                             [this] (int fd)
                                             {
@@ -207,9 +212,12 @@ public:
     }
 
     bool sleepUntilNextEvent (int timeoutMs)
-    {
+    {   
         const ScopedLock sl (lock);
-        return poll (pfds.data(), static_cast<nfds_t> (pfds.size()), timeoutMs) != 0;
+        WaylandMessageLoop::prepareWaylandFd(); // Wayland needs to do work before and after polling!
+        bool result = poll (pfds.data(), static_cast<nfds_t> (pfds.size()), timeoutMs) != 0;
+        WaylandMessageLoop::processWaylandFd();
+        return result;
     }
 
     std::vector<int> getRegisteredFds()
@@ -402,3 +410,5 @@ std::vector<int> LinuxEventLoopInternal::getRegisteredFds()
 }
 
 } // namespace juce
+
+

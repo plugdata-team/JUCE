@@ -80,27 +80,63 @@ private:
     Window window{};
     ScopedWindowAssociation association;
 };
-
-//==============================================================================
+  
+  
 class OpenGLContext::NativeContext
 {
-private:
+    public:
     struct DummyComponent  : public Component
     {
         DummyComponent (OpenGLContext::NativeContext& nativeParentContext)
-            : native (nativeParentContext)
+        : native (nativeParentContext)
         {
         }
-
+        
         void handleCommandMessage (int commandId) override
         {
             if (commandId == 0)
                 native.triggerRepaint();
         }
-
+        
         OpenGLContext::NativeContext& native;
     };
+    
+    
+    struct Locker
+    {
+        explicit Locker (NativeContext& ctx) : lock (ctx.mutex) {}
+        const ScopedLock lock;
+    };
+    
+    virtual ~NativeContext() {};
+  
+    virtual InitResult initialiseOnRenderThread (OpenGLContext& c) = 0;
 
+    virtual void shutdownOnRenderThread() = 0;
+
+    virtual bool makeActive() const noexcept = 0;
+    virtual bool isActive() const noexcept = 0;
+
+    virtual void deactivateCurrentContext() = 0;
+
+    virtual void swapBuffers() = 0;
+    virtual void triggerRepaint() = 0;
+
+    virtual void updateWindowPosition (Rectangle<int> newBounds) = 0;
+
+    virtual bool setSwapInterval (int numFramesPerSwap) = 0;
+    virtual int getSwapInterval() const = 0;
+    virtual bool createdOk() const noexcept = 0;
+    virtual void* getRawContext() const noexcept = 0;
+    GLuint getFrameBufferID() const noexcept    { return 0; }
+  
+    CriticalSection mutex;
+};
+
+//==============================================================================
+class OpenGLContext::X11NativeContext : public OpenGLContext::NativeContext
+{
+private:
     template <typename Traits>
     class ScopedGLXObject
     {
@@ -181,7 +217,7 @@ private:
     using PtrGLXWindow = ScopedGLXObject<TraitsGLXWindow>;
 
 public:
-    NativeContext (Component& comp,
+    X11NativeContext (Component& comp,
                    const OpenGLPixelFormat& cPixelFormat,
                    void* shareContext,
                    bool useMultisamplingIn,
@@ -239,7 +275,7 @@ public:
         juce_LinuxAddRepaintListener (peer, &dummy);
     }
 
-    ~NativeContext()
+    ~X11NativeContext()
     {
         if (auto* peer = component.getPeer())
         {
@@ -344,7 +380,7 @@ public:
         return glXGetCurrentContext() == renderContext.get() && renderContext != PtrGLXContext{};
     }
 
-    static void deactivateCurrentContext()
+    void deactivateCurrentContext()
     {
         if (auto* display = XWindowSystem::getInstance()->getDisplay())
         {
@@ -398,11 +434,6 @@ public:
             context->triggerRepaint();
     }
 
-    struct Locker
-    {
-        explicit Locker (NativeContext& ctx) : lock (ctx.mutex) {}
-        const ScopedLock lock;
-    };
 
 private:
     bool tryChooseVisual (const OpenGLPixelFormat& format, const std::vector<GLint>& optionalAttribs)
@@ -435,7 +466,6 @@ private:
 
     static constexpr int embeddedWindowEventMask = ExposureMask | StructureNotifyMask;
 
-    CriticalSection mutex;
     Component& component;
     PtrGLXContext renderContext;
     PtrGLXWindow glxWindow;
@@ -453,14 +483,8 @@ private:
 
     ::Display* display = nullptr;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NativeContext)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (X11NativeContext)
 };
 
-//==============================================================================
-bool OpenGLHelpers::isContextActive()
-{
-    XWindowSystemUtilities::ScopedXLock xLock;
-    return glXGetCurrentContext() != nullptr;
-}
-
 } // namespace juce
+

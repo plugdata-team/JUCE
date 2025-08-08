@@ -344,6 +344,10 @@ public:
     //==============================================================================
    #ifndef DOXYGEN
     class NativeContext;
+#if JUCE_LINUX
+    class X11NativeContext;
+    class WaylandNativeContext;
+#endif
    #endif
 
 private:
@@ -394,11 +398,5 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenGLContext)
 };
-
-//==============================================================================
-#ifndef DOXYGEN
-template <typename FunctionType>
-void OpenGLContext::executeOnGLThread (FunctionType&& f, bool shouldBlock) { execute (new AsyncWorkerFunctor<FunctionType> (f), shouldBlock); }
-#endif
 
 } // namespace juce
