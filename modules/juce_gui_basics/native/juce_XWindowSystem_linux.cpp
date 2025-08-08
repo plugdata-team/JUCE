@@ -1468,8 +1468,9 @@ ComponentPeer* getPeerFor (::Window windowH)
 static std::unordered_map<LinuxComponentPeer*, X11DragState> dragAndDropStateMap;
 
 XWindowSystem::XWindowSystem()
-{
-    xIsAvailable = X11Symbols::getInstance()->loadAllSymbols();
+{    
+    // If we load wayland without loadAllSymbols, it crashes for some reason
+    xIsAvailable = X11Symbols::getInstance()->loadAllSymbols() && !std::getenv("WAYLAND_DISPLAY");
 
     if (! xIsAvailable)
         return;
@@ -2333,7 +2334,7 @@ void XWindowSystem::setScreenSaverEnabled (bool enabled) const
 }
 
 Point<float> XWindowSystem::getCurrentMousePosition() const
-{
+{    
     Window root, child;
     int x, y, winx, winy;
     unsigned int mask;
@@ -3328,7 +3329,7 @@ bool XWindowSystem::initialiseXDisplay()
         return false;
     }
 
-    // Setup input event handler
+    // Setup input event handler    
     LinuxEventLoop::registerFdCallback (X11Symbols::getInstance()->xConnectionNumber (display),
                                         [this] (int)
                                         {
@@ -3862,6 +3863,8 @@ void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer) const
 
 void XWindowSystem::handleConfigureNotifyEvent (LinuxComponentPeer* peer, XConfigureEvent& confEvent) const
 {
+    const ScopedValueSetter<bool> scope { peer->inConfigureNotifyHandler, true };
+
     peer->updateWindowBounds();
     peer->updateBorderSize();
     peer->handleMovedOrResized();
@@ -4169,3 +4172,4 @@ Image createSnapshotOfNativeWindow (void* window)
 }
 
 } // namespace juce
+

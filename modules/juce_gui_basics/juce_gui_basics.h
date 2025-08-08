@@ -385,8 +385,25 @@ namespace juce
   #undef SIZEOF
   #undef KeyPress
 
+  #ifndef JUCE_USE_WAYLAND
+  #define JUCE_USE_WAYLAND 1
+  #endif
+  
+  #include <wayland-client.hpp>
+  #include <wayland-client-protocol.hpp>
+  #include <wayland-client-protocol-extra.hpp>
+  #include <wayland-client-protocol-unstable.hpp>
+  #include <wayland-client.hpp>
+  #include <wayland-cursor.hpp>
+  #include <libdecor-0/libdecor.h>
+  #include <xkbcommon/xkbcommon.h>
+  #include <linux/input-event-codes.h>
+  //#include "native/wayland/wayland-xdg-shell.hpp"
+  //#include "native/wayland/xdg-decoration-unstable-v1-client-protocol.hpp"
+  
   #include "native/juce_XWindowSystem_linux.h"
   #include "native/juce_XSymbols_linux.h"
+  #include "native/juce_WaylandWindowSystem.h"
  #endif
 #endif
 

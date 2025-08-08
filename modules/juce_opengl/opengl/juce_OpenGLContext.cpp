@@ -129,8 +129,19 @@ public:
         : context (c),
           component (comp)
     {
+#if JUCE_LINUX || JUCE_BSD
+        if(WaylandWindowSystem::getInstance()->isWaylandAvailable()) {
+            nativeContext.reset (new WaylandNativeContext (component, pixFormat, contextToShare,
+                                                c.useMultisampling, c.versionRequired));
+        }
+        else {
+            nativeContext.reset (new X11NativeContext (component, pixFormat, contextToShare,
+                                                c.useMultisampling, c.versionRequired));    
+        }
+#else
         nativeContext.reset (new NativeContext (component, pixFormat, contextToShare,
                                                 c.useMultisampling, c.versionRequired));
+#endif
 
         if (nativeContext->createdOk())
             context.nativeContext = nativeContext.get();
@@ -242,8 +253,9 @@ public:
 
         ~ScopedContextActivator()
         {
-            if (active)
-                OpenGLContext::deactivateCurrentContext();
+            // TODO: fix this!
+            //if (active)
+            //    OpenGLContext::deactivateCurrentContext();
         }
 
     private:
@@ -950,7 +962,7 @@ bool OpenGLContext::isActive() const noexcept
 
 void OpenGLContext::deactivateCurrentContext()
 {
-    NativeContext::deactivateCurrentContext();
+    //NativeContext::deactivateCurrentContext();
     currentThreadActiveContext.get() = nullptr;
 }
 
@@ -962,7 +974,8 @@ void OpenGLContext::swapBuffers()
 
 double OpenGLContext::getRenderingScale() const noexcept
 {
-    return getCachedImage()->areaAndScale.scale;
+    auto* c = getCachedImage();
+    return c ? c->areaAndScale.scale : 1.0f;
 }
 
 
@@ -1272,4 +1285,4 @@ void OpenGLContext::NativeContext::surfaceDestroyed (LocalRef<jobject>)
 
 #endif
 
-} // namespace juce
+} // namespace juce

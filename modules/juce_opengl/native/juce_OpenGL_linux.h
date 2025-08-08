@@ -71,12 +71,12 @@ private:
     Window window{};
     ScopedWindowAssociation association;
 };
-
-//==============================================================================
+  
+  
 class OpenGLContext::NativeContext
 {
-private:
-    struct DummyComponent  : public Component
+public:
+      struct DummyComponent  : public Component
     {
         DummyComponent (OpenGLContext::NativeContext& nativeParentContext)
             : native (nativeParentContext)
@@ -91,7 +91,40 @@ private:
 
         OpenGLContext::NativeContext& native;
     };
+  
+  
+    struct Locker
+    {
+        explicit Locker (NativeContext& ctx) : lock (ctx.mutex) {}
+        const ScopedLock lock;
+    };
+  
+    virtual InitResult initialiseOnRenderThread (OpenGLContext& c) = 0;
 
+    virtual void shutdownOnRenderThread() = 0;
+
+    virtual bool makeActive() const noexcept = 0;
+    virtual bool isActive() const noexcept = 0;
+
+    virtual void deactivateCurrentContext() = 0;
+
+    virtual void swapBuffers() = 0;
+
+    virtual void updateWindowPosition (Rectangle<int> newBounds) = 0;
+
+    virtual bool setSwapInterval (int numFramesPerSwap) = 0;
+    virtual int getSwapInterval() const = 0;
+    virtual bool createdOk() const noexcept = 0;
+    virtual void* getRawContext() const noexcept = 0;
+    GLuint getFrameBufferID() const noexcept    { return 0; }
+  
+    CriticalSection mutex;
+};
+
+//==============================================================================
+class OpenGLContext::X11NativeContext : public OpenGLContext::NativeContext
+{
+private:
     template <typename Traits>
     class ScopedGLXObject
     {
@@ -172,7 +205,7 @@ private:
     using PtrGLXWindow = ScopedGLXObject<TraitsGLXWindow>;
 
 public:
-    NativeContext (Component& comp,
+    X11NativeContext (Component& comp,
                    const OpenGLPixelFormat& cPixelFormat,
                    void* shareContext,
                    bool useMultisamplingIn,
@@ -230,7 +263,7 @@ public:
         juce_LinuxAddRepaintListener (peer, &dummy);
     }
 
-    ~NativeContext()
+    ~X11NativeContext()
     {
         if (auto* peer = component.getPeer())
         {
@@ -335,7 +368,7 @@ public:
         return glXGetCurrentContext() == renderContext.get() && renderContext != PtrGLXContext{};
     }
 
-    static void deactivateCurrentContext()
+    void deactivateCurrentContext()
     {
         if (auto* display = XWindowSystem::getInstance()->getDisplay())
         {
@@ -389,11 +422,6 @@ public:
         //    context->triggerRepaint();
     }
 
-    struct Locker
-    {
-        explicit Locker (NativeContext& ctx) : lock (ctx.mutex) {}
-        const ScopedLock lock;
-    };
 
 private:
     bool tryChooseVisual (const OpenGLPixelFormat& format, const std::vector<GLint>& optionalAttribs)
@@ -426,7 +454,6 @@ private:
 
     static constexpr int embeddedWindowEventMask = ExposureMask | StructureNotifyMask;
 
-    CriticalSection mutex;
     Component& component;
     PtrGLXContext renderContext;
     PtrGLXWindow glxWindow;
@@ -444,14 +471,446 @@ private:
 
     ::Display* display = nullptr;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NativeContext)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (X11NativeContext)
+};
+
+
+//==============================================================================
+class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
+{
+private:
+    template <typename Traits>
+    class ScopedEGLObject
+    {
+    public:
+        using Type = typename Traits::Type;
+
+        ScopedEGLObject() = default;
+
+        explicit ScopedEGLObject (Type obj, EGLDisplay d)
+            : object (obj), display (d) {}
+
+        ScopedEGLObject (ScopedEGLObject&& other) noexcept
+            : object (std::exchange (other.object, Type{})),
+              display (std::exchange (other.display, EGL_NO_DISPLAY)) {}
+
+        ScopedEGLObject& operator= (ScopedEGLObject&& other) noexcept
+        {
+            ScopedEGLObject { std::move (other) }.swap (*this);
+            return *this;
+        }
+
+        ~ScopedEGLObject() noexcept
+        {
+            if (object != Type{} && display != EGL_NO_DISPLAY)
+                Traits::destroy (display, object);
+        }
+
+        Type get() const { return object; }
+
+        void reset() noexcept
+        {
+            *this = ScopedEGLObject();
+        }
+
+        void swap (ScopedEGLObject& other) noexcept
+        {
+            std::swap (other.object, object);
+            std::swap (other.display, display);
+        }
+
+        bool operator== (const ScopedEGLObject& other) const
+        {
+            const auto tie = [] (const auto& x) { return std::tie (x.object, x.display); };
+            return tie (*this) == tie (other);
+        }
+
+        bool operator!= (const ScopedEGLObject& other) const
+        {
+            return ! operator== (other);
+        }
+
+    private:
+        Type object{};
+        EGLDisplay display = EGL_NO_DISPLAY;
+    };
+
+    struct TraitsEGLContext
+    {
+        using Type = EGLContext;
+
+        static void destroy (EGLDisplay display, Type context)
+        {
+            eglDestroyContext (display, context);
+        }
+    };
+
+    struct TraitsEGLSurface
+    {
+        using Type = EGLSurface;
+
+        static void destroy (EGLDisplay display, Type surface)
+        {
+            eglDestroySurface (display, surface);
+        }
+    };
+
+    using PtrEGLContext = ScopedEGLObject<TraitsEGLContext>;
+    using PtrEGLSurface = ScopedEGLObject<TraitsEGLSurface>;
+
+public:
+    WaylandNativeContext (Component& comp,
+                   const OpenGLPixelFormat& cPixelFormat,
+                   void* shareContext,
+                   bool useMultisamplingIn,
+                   OpenGLVersion version)
+        : component (comp), 
+          contextToShareWith (shareContext), 
+          dummy (*this),
+          versionRequired (version)
+    {
+        // Get Wayland display from the window system
+        wl_display* waylandDisplay = WaylandWindowSystem::getInstance()->getDisplay();
+
+       // Initialize EGL display
+        eglDisplay = eglGetDisplay ((EGLNativeDisplayType) waylandDisplay);
+        if (eglDisplay == EGL_NO_DISPLAY)
+        {
+            DBG ("OpenGL WaylandNativeContext: Failed to get EGL display");
+            return;
+        }
+
+        EGLint major, minor;
+        if (!eglInitialize (eglDisplay, &major, &minor))
+        {
+            DBG ("OpenGL WaylandNativeContext: Failed to initialize EGL.");
+            return;
+        }
+
+        DBG ("OpenGL WaylandNativeContext: EGL initialized, version " << major << "." << minor);
+
+        // Choose EGL configuration
+        const std::vector<EGLint> optionalAttribs
+        {
+            EGL_SAMPLE_BUFFERS, 0,
+            EGL_SAMPLES,        0
+        };
+
+        if (! tryChooseConfig (cPixelFormat, optionalAttribs) && ! tryChooseConfig (cPixelFormat, {}))
+        {
+            DBG ("OpenGL WaylandNativeContext: Failed to choose EGL config");
+            return;
+        }
+
+        // Get component bounds
+        auto bounds = component.getScreenBounds();
+        // Ensure minimum size
+        auto width = jmax (1, bounds.getWidth());
+        auto height = jmax (1, bounds.getHeight());
+      
+        auto* peer = component.getPeer();
+        if(!embeddedWindow) embeddedWindow = WaylandWindowSystem::getInstance()->createWindow(true, peer, WaylandWindowSystem::getInstance()->getWaylandWindowForPeer(peer));
+        WaylandWindowSystem::getInstance()->setBounds(embeddedWindow, bounds);      
+        waylandSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow(embeddedWindow);
+
+        if (waylandSurface == nullptr)
+        {
+            DBG ("OpenGL WaylandNativeContext: Wayland surface is null");
+            return;
+        }
+
+        auto* emptyRegion = wl_compositor_create_region(WaylandWindowSystem::getInstance()->getCompositor());
+        wl_surface_set_input_region(waylandSurface, emptyRegion);
+        wl_region_destroy(emptyRegion);
+        
+        // Now create the EGL window - surface should be properly configured
+        waylandEglWindow = wl_egl_window_create (waylandSurface, width, height);
+        if (waylandEglWindow == nullptr)
+        {
+            DBG ("OpenGL WaylandNativeContext: Failed to create Wayland EGL window");
+            return;
+        }
+        DBG ("OpenGL WaylandNativeContext: Successfully created EGL window");
+    }
+
+    ~WaylandNativeContext()
+    {
+        if (waylandEglWindow != nullptr)
+        {
+            wl_egl_window_destroy (waylandEglWindow);
+            waylandEglWindow = nullptr;
+        }
+
+        if (eglDisplay != EGL_NO_DISPLAY)
+        {
+            eglTerminate (eglDisplay);
+            eglDisplay = EGL_NO_DISPLAY;
+        }
+    }
+
+    InitResult initialiseOnRenderThread (OpenGLContext& c)
+    {
+        if (eglDisplay == EGL_NO_DISPLAY || bestConfig == nullptr)
+        {
+            DBG ("OpenGL initialiseOnRenderThread: Invalid EGL display or config");
+            return InitResult::fatal;
+        }
+
+        if (waylandEglWindow == nullptr)
+        {
+            DBG ("OpenGL initialiseOnRenderThread: Wayland EGL window is null");
+            return InitResult::fatal;
+        }
+
+        // Create EGL context
+        const auto components = [&]() -> Optional<Version>
+        {
+            switch (versionRequired)
+            {
+                case OpenGLVersion::openGL3_2: return Version { 3, 2 };
+                case OpenGLVersion::openGL4_1: return Version { 4, 1 };
+                case OpenGLVersion::openGL4_3: return Version { 4, 3 };
+                case OpenGLVersion::defaultGLVersion: break;
+            }
+            return {};
+        }();
+
+        std::vector<EGLint> contextAttribs;
+
+        if (components.hasValue())
+        {
+            contextAttribs.insert (contextAttribs.end(), {
+                EGL_CONTEXT_MAJOR_VERSION, components->major,
+                EGL_CONTEXT_MINOR_VERSION, components->minor,
+                EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT
+            });
+
+            #if JUCE_DEBUG
+            contextAttribs.insert (contextAttribs.end(), {
+                EGL_CONTEXT_FLAGS_KHR, EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR
+            });
+            #endif
+        }
+
+        contextAttribs.push_back (EGL_NONE);
+
+        // Bind OpenGL API
+        if (!eglBindAPI (EGL_OPENGL_API))
+        {
+            DBG ("OpenGL initialiseOnRenderThread: Failed to bind OpenGL API.");
+            return InitResult::fatal;
+        }
+
+        DBG ("OpenGL initialiseOnRenderThread: Creating EGL context");
+
+        renderContext = PtrEGLContext { 
+            eglCreateContext (eglDisplay, 
+                             bestConfig, 
+                             (EGLContext) contextToShareWith, 
+                             contextAttribs.data()),
+            eglDisplay 
+        };
+
+        if (renderContext == PtrEGLContext{})
+        {
+            auto error = eglGetError();
+            DBG ("OpenGL initialiseOnRenderThread: Failed to create EGL context");
+            return InitResult::fatal;
+        }
+
+        DBG ("OpenGL initialiseOnRenderThread: EGL context created successfully");
+
+        // Additional check: ensure the EGL window is still valid
+        if (waylandEglWindow == nullptr)
+        {
+            DBG ("OpenGL initialiseOnRenderThread: EGL window became null before surface creation");
+            return InitResult::fatal;
+        }
+
+        DBG ("OpenGL initialiseOnRenderThread: Creating EGL surface");
+
+        // Create EGL surface - this is where the crash might occur
+        eglSurface = PtrEGLSurface { 
+            eglCreateWindowSurface (eglDisplay, 
+                                   bestConfig, 
+                                   (EGLNativeWindowType) waylandEglWindow, 
+                                   nullptr),
+            eglDisplay 
+        };
+      
+
+        if (eglSurface == PtrEGLSurface{})
+        {
+            auto error = eglGetError();
+            DBG ("OpenGL initialiseOnRenderThread: Failed to create EGL surface.");
+            return InitResult::fatal;
+        }
+
+        DBG ("OpenGL initialiseOnRenderThread: EGL surface created successfully");
+
+        // Make context current
+        if (!c.makeActive())
+        {
+            DBG ("OpenGL initialiseOnRenderThread: Failed to make context active");
+            return InitResult::fatal;
+        }
+
+        context = &c;
+        
+        DBG ("OpenGL initialiseOnRenderThread: Successfully initialized OpenGL context");
+        eglSwapInterval (eglDisplay, 0);
+
+        return InitResult::success;
+    }
+
+    void shutdownOnRenderThread()
+    {
+        context = nullptr;
+        deactivateCurrentContext();
+        eglSurface.reset();
+        renderContext.reset();
+    }
+
+    bool makeActive() const noexcept
+    {
+        return renderContext != PtrEGLContext{} 
+            && eglSurface != PtrEGLSurface{}
+            && eglMakeCurrent (eglDisplay, eglSurface.get(), eglSurface.get(), renderContext.get());
+    }
+
+    bool isActive() const noexcept
+    {
+        return eglGetCurrentContext() == renderContext.get() 
+            && renderContext != PtrEGLContext{};
+    }
+
+    void deactivateCurrentContext()
+    {
+        if (auto display = eglGetDisplay (EGL_DEFAULT_DISPLAY))
+        {
+            eglMakeCurrent (display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        }
+    }
+
+    void swapBuffers()
+    {  
+        if (eglSurface == PtrEGLSurface{} || waylandSurface == nullptr)
+            return;
+        // Swap with EGL - let Mesa handle the synchronization
+        eglSwapBuffers(eglDisplay, eglSurface.get());
+    }
+
+    void updateWindowPosition (Rectangle<int> newBounds)
+    {
+        bounds = newBounds;
+        auto physicalBounds = Desktop::getInstance().getDisplays().logicalToPhysical (bounds);
+
+        if (waylandEglWindow != nullptr)
+        {
+            
+            wl_egl_window_resize (waylandEglWindow,
+                                  jmax (1, physicalBounds.getWidth()),
+                                  jmax (1, physicalBounds.getHeight()),
+                                  0, 0);
+        }
+      
+        WaylandWindowSystem::getInstance()->setBounds(embeddedWindow, bounds);
+        
+        if(physicalBounds.isEmpty()) { // special case, hide on 0 bounds
+          eglSwapBuffers(eglDisplay, eglSurface.get());
+        }
+    }
+
+    bool setSwapInterval (int numFramesPerSwap)
+    {
+        if (numFramesPerSwap == swapFrames)
+            return true;
+
+        if (eglDisplay != EGL_NO_DISPLAY)
+        {
+            swapFrames = numFramesPerSwap;
+            return eglSwapInterval (eglDisplay, numFramesPerSwap) == EGL_TRUE;
+        }
+      
+        return false;
+    }
+
+    int getSwapInterval() const                 { return swapFrames; }
+    bool createdOk() const noexcept             { return eglDisplay != EGL_NO_DISPLAY && bestConfig != nullptr; }
+    void* getRawContext() const noexcept        { return renderContext.get(); }
+    GLuint getFrameBufferID() const noexcept    { return 0; }
+
+    void triggerRepaint()
+    {
+    }
+
+private:
+    bool tryChooseConfig (const OpenGLPixelFormat& format, const std::vector<EGLint>& optionalAttribs)
+    {
+        std::vector<EGLint> allAttribs
+        {
+            EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+            EGL_RED_SIZE,        format.redBits,
+            EGL_GREEN_SIZE,      format.greenBits,
+            EGL_BLUE_SIZE,       format.blueBits,
+            EGL_ALPHA_SIZE,      format.alphaBits,
+            EGL_DEPTH_SIZE,      format.depthBufferBits,
+            EGL_STENCIL_SIZE,    format.stencilBufferBits
+        };
+
+        allAttribs.insert (allAttribs.end(), optionalAttribs.begin(), optionalAttribs.end());
+        allAttribs.push_back (EGL_NONE);
+
+        EGLint numConfigs;
+        EGLConfig configs[64];
+
+        if (!eglChooseConfig (eglDisplay, allAttribs.data(), configs, 64, &numConfigs) || numConfigs == 0)
+            return false;
+
+        bestConfig = configs[0]; // Take the first matching configuration
+        return true;
+    }
+
+    struct Version
+    {
+        int major, minor;
+    };
+
+    Component& component;
+    PtrEGLContext renderContext;
+    PtrEGLSurface eglSurface;
+    
+    EGLDisplay eglDisplay = EGL_NO_DISPLAY;
+    EGLConfig bestConfig = nullptr;
+    struct wl_surface* waylandSurface = nullptr;
+    struct wl_egl_window* waylandEglWindow = nullptr;
+    wayland::callback_t frameCallback;
+
+    int swapFrames = 0;
+    Rectangle<int> bounds;
+    void* contextToShareWith;
+    OpenGLVersion versionRequired;
+
+    WaylandWindow* embeddedWindow = nullptr;
+
+    OpenGLContext* context = nullptr;
+    DummyComponent dummy;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaylandNativeContext)
 };
 
 //==============================================================================
 bool OpenGLHelpers::isContextActive()
 {
+    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    {
+      return eglGetCurrentContext() != EGL_NO_CONTEXT;
+    }
+  
     XWindowSystemUtilities::ScopedXLock xLock;
     return glXGetCurrentContext() != nullptr;
 }
 
 } // namespace juce
+

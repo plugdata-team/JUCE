@@ -198,7 +198,9 @@
 
  #include "native/juce_ScopedWindowAssociation_linux.h"
  #include "native/juce_WindowUtils_linux.cpp"
- #include "native/juce_Windowing_linux.cpp"
+ #include "native/juce_Windowing_wayland.cpp"
+ #include "native/juce_WaylandWindowSystem.cpp"
+ #include "native/juce_Windowing_x11.cpp"
  #include "native/juce_NativeMessageBox_linux.cpp"
  #include "native/juce_XWindowSystem_linux.cpp"
 
@@ -360,4 +362,4 @@
 #include "windows/juce_TooltipWindow.cpp"
 #include "windows/juce_TopLevelWindow.cpp"
 #include "windows/juce_VBlankAttachment.cpp"
-#include "windows/juce_NativeScaleFactorNotifier.cpp"
+#include "windows/juce_NativeScaleFactorNotifier.cpp"

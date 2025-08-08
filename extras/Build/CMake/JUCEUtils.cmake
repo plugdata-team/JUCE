@@ -87,6 +87,9 @@ set_property(GLOBAL PROPERTY JUCE_COPY_PLUGIN_AFTER_BUILD FALSE)
 if((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
     _juce_create_pkgconfig_target(JUCE_CURL_LINUX_DEPS libcurl)
     _juce_create_pkgconfig_target(JUCE_BROWSER_LINUX_DEPS webkit2gtk-4.0 gtk+-x11-3.0)
+    #TODO: this is kind of random, put this in a better place
+    target_link_libraries(juce_gui_basics INTERFACE wayland-client wayland-client++ wayland-client-extra++ wayland-client-unstable++ wayland-cursor++ xkbcommon decor-0)
+    target_link_libraries(juce_opengl INTERFACE EGL wayland-egl)
 endif()
 
 # We set up default/fallback copy dirs here. If you need different copy dirs, use
