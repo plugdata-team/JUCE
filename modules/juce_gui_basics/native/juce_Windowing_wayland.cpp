@@ -1,26 +1,6 @@
 /*
-  ==============================================================================
-
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
-
-   JUCE is an open source library subject to commercial or open-source
-   licensing.
-
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
-
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
-
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
-
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
-
-  ==============================================================================
+ // Copyright (c) 2025 Timothy Schoen
+ // Distributed under the GPLv3 license
 */
 
 namespace juce
@@ -51,16 +31,11 @@ public:
             windowH = WaylandWindowSystem::getInstance()->createWindow(true, this, parentWindow);
         }
         else {
-            windowH = WaylandWindowSystem::getInstance()->createWindow(windowStyleFlags & windowIsTemporary, this);
+            windowH = WaylandWindowSystem::getInstance()->createWindow((windowStyleFlags & windowIsTemporary), this);
         }
         
+        setVisible(component.isVisible());
         setTitle (component.getName());
-
-        if(isAlwaysOnTop)
-        {
-            WaylandWindowSystem::getInstance()->toFront(windowH);
-        }
-
         getNativeRealtimeModifiers = []() -> ModifierKeys { return WaylandWindowSystem::getInstance()->getNativeRealtimeModifiers(); };
 
         updateVBlankTimer();
@@ -196,8 +171,7 @@ public:
     }
 
     bool contains (Point<int> localPos, bool trueIfInAChildWindow) const override
-    {  
-     
+    {
         if (! bounds.withZeroOrigin().contains (localPos))
             return false;
 
@@ -223,7 +197,7 @@ public:
             return true;
 
         //return XWindowSystem::getInstance()->contains (windowH, localPos * currentScaleFactor);
-        return true;
+        return WaylandWindowSystem::getInstance()->getBounds(windowH).contains(localPos);
     }
 
     void toFront (bool makeActive) override
@@ -234,8 +208,8 @@ public:
             grabFocus();
         }
 
-        WaylandWindowSystem::getInstance()->toFront (windowH);
-        handleBroughtToFront(); 
+        WaylandWindowSystem::getInstance()->toFront (windowH, true);
+        handleBroughtToFront();
     }
 
     void toBehind (ComponentPeer* other) override
@@ -583,5 +557,6 @@ private:
 bool WaylandComponentPeer::isActiveApplication = false;
 
 } // namespace juce
+
 
 

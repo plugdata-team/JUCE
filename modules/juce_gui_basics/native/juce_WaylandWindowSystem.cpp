@@ -1,29 +1,7 @@
 /*
-  ==============================================================================
-
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
-
-   JUCE is an open source library subject to commercial or open-source
-   licensing.
-
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
-
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
-
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
-
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
-
-  ==============================================================================
-*/
-
-
+ // Copyright (c) 2025 Timothy Schoen
+ // Distributed under the GPLv3 license
+ */
 
 using namespace wayland;
 
@@ -31,27 +9,27 @@ namespace juce
 {
 
 struct WaylandShmBuffer {
-  wayland::buffer_t buffer;
-  void* data = nullptr;
-  size_t size = 0;
-  int fd = -1;
-  int width = 0;
-  int height = 0;
-  wayland::shm_pool_t pool;
-
-  int hotspotX = 0;
-  int hotspotY = 0;
-  
-  WaylandShmBuffer(int buffer_width, int buffer_height)
-  {
+    wayland::buffer_t buffer;
+    void* data = nullptr;
+    size_t size = 0;
+    int fd = -1;
+    int width = 0;
+    int height = 0;
+    wayland::shm_pool_t pool;
+    
+    int hotspotX = 0;
+    int hotspotY = 0;
+    
+    WaylandShmBuffer(int buffer_width, int buffer_height)
+    {
         width = buffer_width;
         height = buffer_height;
-
+        
         const int stride = buffer_width * 4; // 4 bytes per pixel (ARGB8888)
         size = stride * buffer_height;
-
+        
         fd = [](off_t bufsize){
-        #if JUCE_LINUX
+#if JUCE_LINUX
             // Try memfd_create (Linux-specific)
             int memfd = syscall(SYS_memfd_create, "wayland-shm", MFD_CLOEXEC);
             if (memfd >= 0) {
@@ -60,8 +38,8 @@ struct WaylandShmBuffer {
                 }
                 close(memfd);
             }
-        #endif
-
+#endif
+            
             char name[] = "/tmp/wayland-shm-XXXXXX";
             int tempfd = mkstemp(name);
             if (tempfd < 0) {
@@ -74,12 +52,12 @@ struct WaylandShmBuffer {
                 return -1;
             }
             return tempfd;
-            }(size);
+        }(size);
         
         if (fd < 0) {
             throw std::runtime_error("Failed to create shared memory file");
         }
-
+        
         // mmap the shared memory
         data = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (data == MAP_FAILED) {
@@ -91,52 +69,53 @@ struct WaylandShmBuffer {
         // Create the wl_shm_pool using shared shm
         pool = WaylandWindowSystem::getInstance()->getShm().create_pool(fd, size);
         
-
+        
         // Create wl_buffer from pool
         buffer = pool.create_buffer(
-            0,          // offset
-            buffer_width,
-            buffer_height,
-            stride,
-            wayland::shm_format::argb8888
-        );
-  }
-  
-  ~WaylandShmBuffer() {
-      if (data && data != MAP_FAILED) {
-          munmap(data, size);
-      }
-      if (fd >= 0) {
-          close(fd);
-      }
-  }
+                                    0,          // offset
+                                    buffer_width,
+                                    buffer_height,
+                                    stride,
+                                    wayland::shm_format::argb8888
+                                    );
+    }
+    
+    ~WaylandShmBuffer() {
+        if (data && data != MAP_FAILED) {
+            munmap(data, size);
+        }
+        if (fd >= 0) {
+            close(fd);
+        }
+    }
 };
 
 
 namespace WaylandMessageLoop
 {
-    void prepareWaylandFd()
-    {
-        auto* displayManager = WaylandWindowSystem::getInstance();
-        if(!displayManager->isWaylandAvailable()) return;
-        auto& display = displayManager->getDisplay();
-        
-        while (wl_display_prepare_read(display) != 0) {
-            wl_display_dispatch_pending(display);
-        }
-        
-        wl_display_flush(display);
+void prepareWaylandFd()
+{
+    auto* displayManager = WaylandWindowSystem::getInstance();
+    if(!displayManager->isWaylandAvailable()) return;
+    auto& display = displayManager->getDisplay();
+    
+    while (wl_display_prepare_read(display) != 0) {
+        wl_display_dispatch_pending(display);
     }
     
-    void processWaylandFd()
-    {
-        auto* displayManager = WaylandWindowSystem::getInstance();
-        if(!displayManager->isWaylandAvailable()) return;
-        auto& display = displayManager->getDisplay();
-        
-        wl_display_read_events(display); 
-        wl_display_dispatch_pending(display); 
-    }
+    wl_display_flush(display);
+}
+
+void processWaylandFd()
+{
+    auto* displayManager = WaylandWindowSystem::getInstance();
+    if(!displayManager->isWaylandAvailable()) return;
+    auto& display = displayManager->getDisplay();
+    
+    
+    wl_display_read_events(display);
+    wl_display_dispatch_pending(display);
+}
 }
 
 struct WaylandWindow {
@@ -154,6 +133,8 @@ struct WaylandWindow {
     bool minimised:1 = false;
     bool ignoresMouse:1 = false;
     bool ignoresKeyboard:1 = false;
+    bool alwaysOnTop:1 = false;
+    bool activated:1 = false;
     WaylandWindow* parentWindow = nullptr;
     
     Point<float> currentMousePosition;
@@ -173,12 +154,12 @@ struct WaylandOutput {
     bool is_primary = false;
     
     WaylandOutput(wayland::output_t out) : output(std::move(out)) {
-        output.on_geometry() = [this](int32_t x_pos, int32_t y_pos, 
-                                     int32_t phys_width, int32_t phys_height,
-                                     wayland::output_subpixel subpixel,
-                                     std::string const& make_str,
-                                     std::string const& model_str,
-                                     wayland::output_transform trans) {
+        output.on_geometry() = [this](int32_t x_pos, int32_t y_pos,
+                                      int32_t phys_width, int32_t phys_height,
+                                      wayland::output_subpixel subpixel,
+                                      std::string const& make_str,
+                                      std::string const& model_str,
+                                      wayland::output_transform trans) {
             x = x_pos;
             y = y_pos;
             physical_width = phys_width;
@@ -218,20 +199,24 @@ struct libdecor_interface WaylandWindowSystem::decorInterface = {
 
 // Frame interface callbacks
 static void frame_configure(struct libdecor_frame* frame,
-                           struct libdecor_configuration* configuration,
-                           void* user_data) {
+                            struct libdecor_configuration* configuration,
+                            void* user_data) {
     auto* window = static_cast<WaylandWindow*>(user_data);
+    bool wasActivated = window->activated;
     
-    // Handle window states
     enum libdecor_window_state window_state;
     if (libdecor_configuration_get_window_state(configuration, &window_state)) {
         window->fullscreen = window_state & LIBDECOR_WINDOW_STATE_MAXIMIZED;
         window->minimised = false; // libdecor doesn't expose minimized state
+        window->activated = window_state & LIBDECOR_WINDOW_STATE_ACTIVE;
+    }
+    if(!wasActivated && window->activated)
+    {
+        WaylandWindowSystem::getInstance()->toFront(window, false);
+        window->peer->handleBroughtToFront();
     }
     
-    window->configured = true;
-    
-    int width, height;
+    int width = 0, height = 0;
     if (libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
         if (width > 0 && height > 0) {
             window->bounds.setSize(width, height);
@@ -239,28 +224,28 @@ static void frame_configure(struct libdecor_frame* frame,
             window->peer->repaint(Rectangle<int>(0, 0, width, height));
         }
     }
-
-    // Create and commit the configuration
-    auto* state = libdecor_state_new(width, height);
-    libdecor_frame_commit(frame, state, configuration);
-    libdecor_state_free(state);
     
-        
+    if (width > 0 && height > 0) {
+        auto* state = libdecor_state_new(width, height);
+        libdecor_frame_commit(frame, state, nullptr);
+        libdecor_state_free(state);
+    }
+    
     if(!window->ignoresMouse) {
         auto inputRegion = WaylandWindowSystem::getInstance()->getCompositor().create_region();
         inputRegion.add(0, 0, width, height);
         window->surface.set_input_region(inputRegion);
     }
+    window->configured = true;
 }
 
 static void frame_close(struct libdecor_frame* frame, void* user_data) {
     auto* window = static_cast<WaylandWindow*>(user_data);
-    window->visible = false;
+    window->frame = nullptr;
+    window->peer->getComponent().removeFromDesktop();
 }
 
-static void frame_commit(struct libdecor_frame* frame, void* user_data) {
-    // Optional: handle commit events if needed
-}
+static void frame_commit(struct libdecor_frame* frame, void* user_data) {}
 
 static struct libdecor_frame_interface frame_interface = {
     .configure = frame_configure,
@@ -276,14 +261,14 @@ WaylandWindowSystem::WaylandWindowSystem()
     if (!std::getenv("WAYLAND_DISPLAY")) {
         return;
     }
-
+    
     try {
         // initialise XKB context for this window
         xkbContext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!xkbContext) {
             std::cerr << "Failed to create XKB context for window" << std::endl;
         }
-
+        
         display = std::make_unique<wayland::display_t>();
         if (!*display) {
             return;
@@ -308,9 +293,9 @@ WaylandWindowSystem::WaylandWindowSystem()
                 registry.bind(name, seat, std::min(version, 7u));
                 setupGlobalInput();
             }
-            else if (interface == "wl_data_device_manager") 
+            else if (interface == "wl_data_device_manager")
             {
-                 registry.bind(name, dataDeviceManager, version);
+                registry.bind(name, dataDeviceManager, version);
             }
             else if (interface == "wl_output") {
                 wayland::output_t output_proxy;
@@ -319,13 +304,13 @@ WaylandWindowSystem::WaylandWindowSystem()
                 outputs.push_back(std::move(wayland_output));
             }
         };
-
+        
         display->roundtrip();
         
         // Check for required globals
         std::string missing_globals;
         if (!compositor) missing_globals += "wl_compositor ";
-        if (!subcompositor) missing_globals += "wl_subcompositor ";        
+        if (!subcompositor) missing_globals += "wl_subcompositor ";
         if (!shm) missing_globals += "wl_shm ";
         if (!seat) missing_globals += "wl_seat ";
         if (!dataDeviceManager) missing_globals += "wl_data_device_manager ";
@@ -339,11 +324,11 @@ WaylandWindowSystem::WaylandWindowSystem()
         }
         
         initializeDataDeviceManager();
-
+        
         // Register the event loop callback
         LinuxEventLoop::registerFdCallback(display->get_fd(), [](int fd) mutable {});
         
-        initialised = true;        
+        initialised = true;
     } catch (...) {
         std::cerr << "Wayland not found" << std::endl;
         return;
@@ -369,7 +354,7 @@ WaylandWindow* WaylandWindowSystem::createWindow(bool isSubsurface, ComponentPee
 {
     auto* window = new WaylandWindow();
     window->peer = dynamic_cast<WaylandComponentPeer*>(peer);
-
+    
     if(isSubsurface && !parent)
     {
         window->parentWindow = lastFocusedWindow;
@@ -383,25 +368,26 @@ WaylandWindow* WaylandWindowSystem::createWindow(bool isSubsurface, ComponentPee
     window->surface = getCompositor().create_surface();
     window->surface.set_buffer_scale(peer->getPlatformScaleFactor());
     window->ignoresMouse = (peer->getStyleFlags() & ComponentPeer::windowIgnoresMouseClicks);
+    window->alwaysOnTop = peer->getComponent().isAlwaysOnTop();
     if(window->ignoresMouse)
     {
         window->surface.set_input_region(compositor.create_region());
     }
-
+    
     if(isSubsurface)
     {
         window->subsurface = subcompositor.get_subsurface(window->surface, window->parentWindow->surface);
         window->subsurface.set_position(0, 0);
-        window->subsurface.set_desync(); 
-
+        window->subsurface.set_desync();
+        
         window->surface.commit();
         window->parentWindow->surface.commit();
     }
-    else 
-    {  
-       auto styleFlags = peer->getStyleFlags();
+    else
+    {
+        auto styleFlags = peer->getStyleFlags();
         
-        int capabilities = LIBDECOR_ACTION_MOVE;        
+        int capabilities = LIBDECOR_ACTION_MOVE;
         if (styleFlags & ComponentPeer::windowHasMinimiseButton) {
             capabilities |= (int)LIBDECOR_ACTION_MINIMIZE;
         }
@@ -415,12 +401,12 @@ WaylandWindow* WaylandWindowSystem::createWindow(bool isSubsurface, ComponentPee
         }
         
         if (styleFlags & ComponentPeer::windowIsResizable) {
-           capabilities |= (int)LIBDECOR_ACTION_RESIZE;
+            capabilities |= (int)LIBDECOR_ACTION_RESIZE;
         }
-        window->frame = libdecor_decorate(decorator, window->surface, 
-                                              &frame_interface, window);
+        window->frame = libdecor_decorate(decorator, window->surface,
+                                          &frame_interface, window);
         libdecor_frame_set_capabilities(window->frame, (libdecor_capabilities)capabilities);
-         if (!(styleFlags & ComponentPeer::windowHasTitleBar)) {
+        if (!(styleFlags & ComponentPeer::windowHasTitleBar)) {
             libdecor_frame_set_visibility(window->frame, false);
         }
         
@@ -430,16 +416,13 @@ WaylandWindow* WaylandWindowSystem::createWindow(bool isSubsurface, ComponentPee
             throw std::runtime_error("Failed to create libdecor frame");
         }
         
-        // Set initial title
         libdecor_frame_set_title(window->frame, "JUCE Window");
-        
         libdecor_frame_set_min_content_size(window->frame, 500, 500);
         libdecor_frame_set_max_content_size(window->frame, 5000, 5000);
-				    
-        // Map the surface
         libdecor_frame_map(window->frame);
         
         window->surface.commit();
+        
         // Wait for initial configure
         int timeout = 50;
         while (!window->configured && timeout-- > 0) {
@@ -451,9 +434,7 @@ WaylandWindow* WaylandWindowSystem::createWindow(bool isSubsurface, ComponentPee
         }
     }
     
-
-    // Make sure dialogs can properly attach to a parent
-    lastFocusedWindow = window->subsurface ? lastFocusedWindow : window;     
+    if(!lastFocusedWindow) lastFocusedWindow = (window->subsurface || !window->visible) ? lastFocusedWindow : window;
     
     try
     {
@@ -461,11 +442,9 @@ WaylandWindow* WaylandWindowSystem::createWindow(bool isSubsurface, ComponentPee
     }
     catch(...)
     {
-        std::cout << "Failed to register window" << std::endl;
     }
     
-    zOrder.push_back(window);
-    
+    WaylandWindowSystem::getInstance()->toFront(window, false);
     return window;
 }
 
@@ -475,7 +454,7 @@ WaylandWindow* WaylandWindowSystem::getWaylandWindowForPeer(ComponentPeer* peer)
     {
         return waylandPeer->getWindow();
     }
-
+    
     return nullptr;
 };
 
@@ -491,20 +470,20 @@ void WaylandWindowSystem::requestFrame(WaylandWindow* window)
 
 void WaylandWindowSystem::destroyWindow(WaylandWindow* window)
 {
-  auto it = findInZOrder(window);
-  if (it != zOrder.end()) {
-      zOrder.erase(it);
-  }
-  
-  if (window->frame) {
-      libdecor_frame_unref(window->frame);
-      window->frame = nullptr;
-  }
-
-  try
-  {
-      auto it = surfaceToWindow.find(window->surface.get_id());
-      if (it != surfaceToWindow.end()) {
+    auto it = findInZOrder(window);
+    if (it != zOrder.end()) {
+        zOrder.erase(it);
+    }
+    
+    if (window->frame) {
+        libdecor_frame_unref(window->frame);
+        window->frame = nullptr;
+    }
+    
+    try
+    {
+        auto it = surfaceToWindow.find(window->surface.get_id());
+        if (it != surfaceToWindow.end()) {
             surfaceToWindow.erase(it);
             // Clear focus if this window had it
             if (keyboardFocused == window) keyboardFocused = nullptr;
@@ -521,17 +500,17 @@ void WaylandWindowSystem::destroyWindow(WaylandWindow* window)
 
 void WaylandWindowSystem::setBounds(WaylandWindow* window, Rectangle<int> b)
 {
-    if(b == window->bounds) 
+    if(b == window->bounds)
         return;
-
+    
     if (window->frame) {
-        window->bounds = b.withZeroOrigin();        
+        window->bounds = b.withZeroOrigin();
         auto* state = libdecor_state_new(b.getWidth(), b.getHeight());
         libdecor_frame_commit(window->frame, state, nullptr);
     } else if (window->subsurface) {
         auto parentBounds = getBounds(window->parentWindow);
         window->bounds = b.translated(parentBounds.getX(), parentBounds.getY());
-        window->subsurface.set_position(window->bounds.getX(), window->bounds.getY()); 
+        window->subsurface.set_position(window->bounds.getX(), window->bounds.getY());
         window->surface.commit();
         window->parentWindow->surface.commit();
     }
@@ -544,7 +523,7 @@ Rectangle<int> WaylandWindowSystem::getBounds(WaylandWindow* window)
     return bounds;
 }
 void WaylandWindowSystem::startHostManagedResize (WaylandWindow* window, ResizableBorderComponent::Zone zone)
-{    
+{
     if (!window->frame) return; // Only for decorated windows
     
     auto edge = [zone] {
@@ -583,7 +562,7 @@ bool isParentOf(WaylandWindow* window, WaylandWindow* parentWindow)
     return isParentOf(window->parentWindow, parentWindow);
 }
 
-    // Helper to get all subsurfaces with the same parent, sorted by z-order
+// Helper to get all subsurfaces with the same parent, sorted by z-order
 std::vector<WaylandWindow*> WaylandWindowSystem::getSubsurfacesForParent(WaylandWindow* parent) const {
     std::vector<WaylandWindow*> subsurfaces;
     for (WaylandWindow* window : zOrder) {
@@ -595,17 +574,32 @@ std::vector<WaylandWindow*> WaylandWindowSystem::getSubsurfacesForParent(Wayland
 }
 
 
-void WaylandWindowSystem::toFront(WaylandWindow* window) {
+void WaylandWindowSystem::toFront(WaylandWindow* window, bool commit) {
     if (!window->subsurface) {
         return;
     }
-
+    
     auto it = findInZOrder(window);
-    if (it == zOrder.end()) return;
-
-    zOrder.erase(it);
-    zOrder.push_back(window);
-    enforceOrder();
+    if (it != zOrder.end()) {
+        zOrder.erase(it);
+    }
+    window->alwaysOnTop = window->peer->getComponent().isAlwaysOnTop();
+    
+    if(window->alwaysOnTop)
+    {
+        zOrder.push_back(window);
+    }
+    else {
+        for(int i = zOrder.size() - 1; i >= 0 ; i--)
+        {
+            if(!zOrder[i]->alwaysOnTop)
+            {
+                zOrder.insert(zOrder.begin() + i, window);
+            }
+        }
+    }
+    
+    if(commit) enforceOrder();
 }
 
 void WaylandWindowSystem::toBehind(WaylandWindow* window, WaylandWindow* referenceWindow) {
@@ -617,7 +611,7 @@ void WaylandWindowSystem::toBehind(WaylandWindow* window, WaylandWindow* referen
     auto refIt = findInZOrder(referenceWindow);
     
     if (windowIt == zOrder.end() || refIt == zOrder.end()) return;
-
+    
     // Store indices before any modifications
     size_t windowIndex = std::distance(zOrder.begin(), windowIt);
     size_t refIndex = std::distance(zOrder.begin(), refIt);
@@ -642,27 +636,27 @@ void WaylandWindowSystem::enforceOrder() {
     std::set<WaylandWindow*> processedParents;
     
     for (WaylandWindow* window : zOrder) {
-        if (window->parentWindow && 
+        if (window->parentWindow &&
             processedParents.find(window->parentWindow) == processedParents.end()) {
             auto* parent = window->parentWindow;
             // Get all subsurfaces for this parent in z-order
             std::vector<WaylandWindow*> subsurfaces = getSubsurfacesForParent(parent);
-
+            
             if (subsurfaces.size() <= 1) return; // Nothing to stack
-
+            
             // Work from bottom to top, making sure each window is placed above the previous one
             for (size_t i = 1; i < subsurfaces.size(); i++) {
                 WaylandWindow* current = subsurfaces[i];
                 WaylandWindow* below = subsurfaces[i-1];
                 current->subsurface.place_above(below->surface);
             }
-
+            
             // Commit all changes
             for (WaylandWindow* subsurface : subsurfaces) {
                 subsurface->surface.commit();
             }
             parent->surface.commit();
-
+            
             processedParents.insert(window->parentWindow);
         }
     }
@@ -704,8 +698,8 @@ void WaylandWindowSystem::setVisible (WaylandWindow* window, bool shouldBeVisibl
 
 void WaylandWindowSystem::setFullscreen (WaylandWindow* window, bool shouldBeFullscreen)
 {
-    if (window->frame) {  
-        if (shouldBeFullscreen) {   
+    if (window->frame) {
+        if (shouldBeFullscreen) {
             libdecor_frame_set_maximized(window->frame);
         } else {
             libdecor_frame_unset_maximized(window->frame);
@@ -733,7 +727,6 @@ bool WaylandWindowSystem::isMinimised (WaylandWindow* window)
 void WaylandWindowSystem::grabFocus(WaylandWindow* window)
 {
     keyboardFocused = window;
-    lastFocusedWindow = window->subsurface ? lastFocusedWindow : window;
 }
 
 bool WaylandWindowSystem::isFocused(WaylandWindow* window)
@@ -749,7 +742,6 @@ void WaylandWindowSystem::blitToWindow(WaylandWindow* window, const Image& image
     int windowWidth = window->bounds.getWidth() * scaleFactor;
     int windowHeight = window->bounds.getHeight() * scaleFactor;
     
-    
     if (windowWidth <= 0 || windowHeight <= 0) {
         return;
     }
@@ -764,7 +756,6 @@ void WaylandWindowSystem::blitToWindow(WaylandWindow* window, const Image& image
         }
     }
     
-    // Validate buffer
     if (!currentBuffer || !currentBuffer->data) {
         std::cerr << "No valid buffer available" << std::endl;
         return;
@@ -788,12 +779,12 @@ void WaylandWindowSystem::blitToWindow(WaylandWindow* window, const Image& image
         // Line in source image
         auto* srcRow = srcData.getLinePointer(srcY);
         auto* srcPixel = reinterpret_cast<const uint32_t*>(srcRow) + srcOffset.x;
-
+        
         uint32_t* destRow = bufferData + (destY * windowWidth) + clampedBounds.getX();
         
-        const int copyWidth = std::min(clampedBounds.getWidth(), 
-                                     std::min(windowWidth - clampedBounds.getX(),
-                                            image.getWidth() - srcOffset.x));
+        const int copyWidth = std::min(clampedBounds.getWidth(),
+                                       std::min(windowWidth - clampedBounds.getX(),
+                                                image.getWidth() - srcOffset.x));
         
         if (copyWidth > 0) {
             std::memcpy(destRow, srcPixel, copyWidth * sizeof(uint32_t));
@@ -822,7 +813,7 @@ WaylandWindow* WaylandWindowSystem::findWindowBySurface(const wayland::surface_t
         auto it = surfaceToWindow.find(surface.get_id());
         return (it != surfaceToWindow.end()) ? it->second : nullptr;
     }
-     catch(...)
+    catch(...)
     {
         std::cout << "Failed to get surface" << std::endl;
     }
@@ -847,29 +838,29 @@ void WaylandWindowSystem::updateMouseModifiers(uint32_t button, bool pressed) {
             break;
     };
 }
-    
+
 ModifierKeys WaylandWindowSystem::getNativeRealtimeModifiers()
 {
     auto mods = ModifierKeys::currentModifiers.withOnlyMouseButtons();
     if (xkbState != nullptr)
     {
         const auto active = XKB_STATE_MODS_EFFECTIVE;
-
+        
         if (xkb_state_mod_name_is_active(xkbState, XKB_MOD_NAME_SHIFT, active))
             mods = mods.withFlags(ModifierKeys::shiftModifier);
-
+        
         if (xkb_state_mod_name_is_active(xkbState, XKB_MOD_NAME_CTRL, active)) {
             mods = mods.withFlags(ModifierKeys::ctrlModifier);
         }
         if (xkb_state_mod_name_is_active(xkbState, XKB_MOD_NAME_ALT, active))
             mods = mods.withFlags(ModifierKeys::altModifier);
-
+        
         if (xkb_state_mod_name_is_active(xkbState, XKB_MOD_NAME_LOGO, active))
             mods = mods.withFlags(ModifierKeys::commandModifier); // Maps to Cmd on mac, Win key on Linux
-    }    
+    }
     return mods;
 }
-    
+
 Point<float> WaylandWindowSystem::getCurrentMousePosition()
 {
     return currentMousePosition;
@@ -887,10 +878,9 @@ void WaylandWindowSystem::setupGlobalInput() {
         globalKeyboard = seat.get_keyboard();
         
         globalKeyboard.on_enter() = [this](uint32_t serial, wayland::surface_t surface, wayland::array_t keys) {
-            WaylandWindow* window = findWindowBySurface(surface);
-            if (window) {
+            if (auto* window = findWindowBySurface(surface)) {
                 keyboardFocused = window;
-                if(!lastFocusedWindow) lastFocusedWindow = window->subsurface ? lastFocusedWindow : window; // prefer pointer focus over keyboard focus
+                if(!lastFocusedWindow) lastFocusedWindow = (window->subsurface || !window->visible) ? lastFocusedWindow : window; // prefer pointer focus over keyboard focus
             }
         };
         
@@ -919,8 +909,8 @@ void WaylandWindowSystem::setupGlobalInput() {
         globalKeyboard.on_modifiers() = [this](uint32_t serial, uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group) {
             if (auto* window = keyboardFocused) {
                 if (xkbState) {
-                    xkb_state_update_mask(xkbState, depressed, latched, 
-                                         locked, 0, 0, group);
+                    xkb_state_update_mask(xkbState, depressed, latched,
+                                          locked, 0, 0, group);
                 }
                 
                 ModifierKeys::currentModifiers = getNativeRealtimeModifiers();
@@ -937,65 +927,66 @@ void WaylandWindowSystem::setupGlobalInput() {
         globalPointer = seat.get_pointer();
         
         globalPointer.on_enter() = [this](uint32_t serial, wayland::surface_t surface, double x, double y) {
-            globalPointer.set_cursor(0, cursorSurface, 0, 0); // force cursor update
-            updateCursor();
             if (auto* window = findWindowBySurface(surface)) {
+                globalPointer.set_cursor(0, cursorSurface, 0, 0); // force cursor update
+                updateCursor();
                 currentMousePosition = window->peer->localToGlobal(Point<float>(x, y));
                 if(!window->ignoresMouse) pointerFocused = window;
-                lastFocusedWindow = window->subsurface ? lastFocusedWindow : window;
+                lastFocusedWindow = (window->subsurface || !window->visible) ? lastFocusedWindow : window;
                 handleMouseEvent(window);
             }
         };
         
-        globalPointer.on_leave() = [this](uint32_t serial, wayland::surface_t surface) {            
-            WaylandWindow* window = findWindowBySurface(surface);
-            if (window && pointerFocused == window) {
-                pointerFocused = nullptr;
+        globalPointer.on_leave() = [this](uint32_t serial, wayland::surface_t surface) {
+            if (auto* window = findWindowBySurface(surface)) {
+                // We can't track global mouse after we leave our surface, so set it to somewhere outside the window
+                currentMousePosition = Point<float>(-1.0f, -1.0f);
                 handleMouseEvent(window);
+                
+                // Send mouse-up events for any held mouse buttons
+                // Since triggering a host managed resize also makes us lose pointer focus
+                // sending mouse-ups here will cancel non-managed resizing
+                if(ModifierKeys::currentModifiers.isLeftButtonDown())
+                {
+                    updateMouseModifiers(BTN_LEFT, false);
+                    handleMouseEvent(window);
+                }
+                if(ModifierKeys::currentModifiers.isRightButtonDown())
+                {
+                    updateMouseModifiers(BTN_RIGHT, false);
+                    handleMouseEvent(window);
+                }
+                if(ModifierKeys::currentModifiers.isMiddleButtonDown())
+                {
+                    updateMouseModifiers(BTN_MIDDLE, false);
+                    handleMouseEvent(window);
+                }
             }
-            
-            // Send mouse-up events for any held mouse buttons
-            // Since triggering a host managed resize also makes us lose pointer focus
-            // sending mouse-ups here will cancel non-managed resizing
-            if(window && ModifierKeys::currentModifiers.isLeftButtonDown())
-            {
-                updateMouseModifiers(BTN_LEFT, false);
-                handleMouseEvent(window);
-            }
-            if(window && ModifierKeys::currentModifiers.isRightButtonDown())
-            {
-                updateMouseModifiers(BTN_RIGHT, false);
-                handleMouseEvent(window);
-            }
-            if(window && ModifierKeys::currentModifiers.isMiddleButtonDown())
-            {
-                updateMouseModifiers(BTN_MIDDLE, false);
-                handleMouseEvent(window);
-            }
+            pointerFocused = nullptr;
         };
         
-        globalPointer.on_motion() = [this](uint32_t time, double x, double y) {   
-            lastMouseTime = time;
-            renderCursor();
+        globalPointer.on_motion() = [this](uint32_t time, double x, double y) {
             if (auto* window = pointerFocused) {
+                lastMouseTime = time;
+                renderCursor();
                 currentMousePosition = window->peer->localToGlobal(Point<float>(x, y));
                 handleMouseEvent(window);
             }
         };
         
         globalPointer.on_button() = [this](uint32_t serial, uint32_t time, uint32_t button, wayland::pointer_button_state state) {
-            currentMouseSerial = serial;
-            lastMouseTime = time;
-            bool pressed = (state == wayland::pointer_button_state::pressed);
-            updateMouseModifiers(button, pressed);
             if (auto* window = pointerFocused) {
-                 handleMouseEvent(window);
+                currentMouseSerial = serial;
+                lastMouseTime = time;
+                bool pressed = (state == wayland::pointer_button_state::pressed);
+                updateMouseModifiers(button, pressed);
+                handleMouseEvent(window);
             }
         };
         
         globalPointer.on_axis() = [this](uint32_t time, wayland::pointer_axis axis, double value) {
-            lastMouseTime = time;
             if (auto* window = pointerFocused) {
+                lastMouseTime = time;
                 auto scrollDistance = value / 64.0f;
                 auto isVertical = axis == wayland::pointer_axis::vertical_scroll;
                 auto localPos = window->peer->globalToLocal(currentMousePosition);
@@ -1025,7 +1016,7 @@ void WaylandWindowSystem::setupKeymap(int fd, uint32_t size) {
         std::cerr << "Error initialising keymap" << std::endl;
         return;
     }
-
+    
     char* keymapString = static_cast<char*>(mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0));
     if (keymapString == MAP_FAILED) {
         std::cerr << "Failed to mmap keymap: " << strerror(errno) << std::endl;
@@ -1044,9 +1035,9 @@ void WaylandWindowSystem::setupKeymap(int fd, uint32_t size) {
         keymap = nullptr;
     }
     
-    keymap = xkb_keymap_new_from_string(xkbContext, keymapStr.c_str(), 
-                                       XKB_KEYMAP_FORMAT_TEXT_V1, 
-                                       XKB_KEYMAP_COMPILE_NO_FLAGS);
+    keymap = xkb_keymap_new_from_string(xkbContext, keymapStr.c_str(),
+                                        XKB_KEYMAP_FORMAT_TEXT_V1,
+                                        XKB_KEYMAP_COMPILE_NO_FLAGS);
     
     if (munmap(keymapString, size) != 0) {
         std::cerr << "Warning: Failed to unmap keymap memory: " << strerror(errno) << std::endl;
@@ -1077,14 +1068,14 @@ void WaylandWindowSystem::handleMouseEvent(WaylandWindow* window) {
     
     auto localPos = window->peer->globalToLocal(currentMousePosition);
     window->peer->handleMouseEvent(MouseInputSource::InputSourceType::mouse,
-                   localPos,
-                   ModifierKeys::currentModifiers,
-                   MouseInputSource::defaultPressure,  // Default pressure
-                   MouseInputSource::defaultOrientation, // Default orientation  
-                   lastMouseTime);
+                                   localPos,
+                                   ModifierKeys::currentModifiers,
+                                   MouseInputSource::defaultPressure,  // Default pressure
+                                   MouseInputSource::defaultOrientation, // Default orientation
+                                   lastMouseTime);
 }
 
-void WaylandWindowSystem::handleKeyEvent(WaylandWindow* window, uint32_t waylandKey, bool pressed) {    
+void WaylandWindowSystem::handleKeyEvent(WaylandWindow* window, uint32_t waylandKey, bool pressed) {
     int xkbKeyCode = waylandKey + 8;
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(xkbState, xkbKeyCode);
     
@@ -1156,7 +1147,7 @@ void WaylandWindowSystem::handleKeyEvent(WaylandWindow* window, uint32_t wayland
             case XKB_KEY_F10:        juceKeyCode = KeyPress::F10Key; break;
             case XKB_KEY_F11:        juceKeyCode = KeyPress::F11Key; break;
             case XKB_KEY_F12:        juceKeyCode = KeyPress::F12Key; break;
-            default: 
+            default:
                 break;
         }
     }
@@ -1176,9 +1167,9 @@ void WaylandWindowSystem::handleKeyEvent(WaylandWindow* window, uint32_t wayland
     
     if (oldMods != ModifierKeys::currentModifiers)
         window->peer->handleModifierKeysChange();
-
+    
     window->peer->handleKeyUpOrDown(pressed);
-
+    
     if (shouldSendKeyPress && pressed) {
         window->peer->handleKeyPress(juceKeyCode, textChar);
     }
@@ -1189,10 +1180,10 @@ void WaylandWindowSystem::handleKeyEvent(WaylandWindow* window, uint32_t wayland
         keyRepeater.startTimer(keyRepeatDelay);
     }
     else {
-        keysCurrentlyDown.erase(juceKeyCode);  
-       if(keysCurrentlyDown.empty()) {
+        keysCurrentlyDown.erase(juceKeyCode);
+        if(keysCurrentlyDown.empty()) {
             keyRepeater.stopTimer();
-       }
+        }
     }
 }
 
@@ -1208,7 +1199,7 @@ void WaylandWindowSystem::commit(WaylandWindow* window) {
     window->surface.commit();
 }
 
- // Add this method to get display information
+// Add this method to get display information
 Array<Displays::Display> WaylandWindowSystem::findDisplays(float masterScale) {
     Array<Displays::Display> displays;
     
@@ -1221,7 +1212,7 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays(float masterScale) {
     while (!all_done && timeout-- > 0) {
         {
             all_done = std::all_of(outputs.begin(), outputs.end(),
-                [](const auto& output) { return output->done; });
+                                   [](const auto& output) { return output->done; });
         }
         
         if (!all_done) {
@@ -1247,7 +1238,7 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays(float masterScale) {
     // 1. Output at position (0,0)
     // 2. If none at (0,0), use the first one
     auto primary_it = std::find_if(outputs.begin(), outputs.end(),
-        [](const auto& output) { return output->x == 0 && output->y == 0; });
+                                   [](const auto& output) { return output->x == 0 && output->y == 0; });
     
     if (primary_it == outputs.end() && !outputs.empty()) {
         outputs[0]->is_primary = true;
@@ -1262,8 +1253,8 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays(float masterScale) {
         }
         
         Displays::Display d;
-        d.totalArea = Rectangle<int>(waylandOutput->x, waylandOutput->y, 
-                                   waylandOutput->width, waylandOutput->height);
+        d.totalArea = Rectangle<int>(waylandOutput->x, waylandOutput->y,
+                                     waylandOutput->width, waylandOutput->height);
         d.userArea = d.totalArea; // Wayland doesn't expose workarea directly
         d.isMain = waylandOutput->is_primary;
         
@@ -1277,8 +1268,8 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays(float masterScale) {
             d.dpi = (dpi_x + dpi_y) * 0.5; // Average of x and y DPI
         } else {
             d.dpi = 96.0; // Fallback DPI
-            std::cout << "Warning: No physical dimensions for output " 
-                     << waylandOutput->name << ", using default DPI" << std::endl;
+            std::cout << "Warning: No physical dimensions for output "
+            << waylandOutput->name << ", using default DPI" << std::endl;
         }
         
         // Apply Wayland's scale factor and master scale
@@ -1306,11 +1297,12 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays(float masterScale) {
 }
 
 void WaylandWindowSystem::updateCursor()
-{        
+{
     if(!cursorSurface) {
         cursorTheme = wayland::cursor_theme_t("", 24, (wl_shm*)shm);
         loadStandardCursors();
         cursorSurface = compositor.create_surface();
+        currentCursor = createStandardMouseCursor(MouseCursor::NormalCursor);
     }
     
     if(currentCursor.standardCursor == -1)
@@ -1361,26 +1353,26 @@ void WaylandWindowSystem::loadStandardCursors()
     };
     
     const CursorMapping mappings[] = {
-    {MouseCursor::ParentCursor, "default"},
-    {MouseCursor::NoCursor, nullptr},
-    {MouseCursor::NormalCursor, "default"},
-    {MouseCursor::WaitCursor, "wait"},
-    {MouseCursor::IBeamCursor, "text"},
-    {MouseCursor::CrosshairCursor, "crosshair"},
-    {MouseCursor::CopyingCursor, "copy"},
-    {MouseCursor::PointingHandCursor, "pointer"},
-    {MouseCursor::DraggingHandCursor, "grab"},
-    {MouseCursor::LeftRightResizeCursor, "col-resize"},
-    {MouseCursor::UpDownResizeCursor, "row-resize"},
-    {MouseCursor::UpDownLeftRightResizeCursor, "all-scroll"},
-    {MouseCursor::TopEdgeResizeCursor, "n-resize"},
-    {MouseCursor::BottomEdgeResizeCursor, "s-resize"},
-    {MouseCursor::LeftEdgeResizeCursor, "w-resize"},
-    {MouseCursor::RightEdgeResizeCursor, "e-resize"},
-    {MouseCursor::TopLeftCornerResizeCursor, "nw-resize"},
-    {MouseCursor::TopRightCornerResizeCursor, "ne-resize"},
-    {MouseCursor::BottomLeftCornerResizeCursor, "sw-resize"},
-    {MouseCursor::BottomRightCornerResizeCursor, "se-resize"}
+        {MouseCursor::ParentCursor, "default"},
+        {MouseCursor::NoCursor, nullptr},
+        {MouseCursor::NormalCursor, "default"},
+        {MouseCursor::WaitCursor, "wait"},
+        {MouseCursor::IBeamCursor, "text"},
+        {MouseCursor::CrosshairCursor, "crosshair"},
+        {MouseCursor::CopyingCursor, "copy"},
+        {MouseCursor::PointingHandCursor, "pointer"},
+        {MouseCursor::DraggingHandCursor, "grab"},
+        {MouseCursor::LeftRightResizeCursor, "col-resize"},
+        {MouseCursor::UpDownResizeCursor, "row-resize"},
+        {MouseCursor::UpDownLeftRightResizeCursor, "all-scroll"},
+        {MouseCursor::TopEdgeResizeCursor, "n-resize"},
+        {MouseCursor::BottomEdgeResizeCursor, "s-resize"},
+        {MouseCursor::LeftEdgeResizeCursor, "w-resize"},
+        {MouseCursor::RightEdgeResizeCursor, "e-resize"},
+        {MouseCursor::TopLeftCornerResizeCursor, "nw-resize"},
+        {MouseCursor::TopRightCornerResizeCursor, "ne-resize"},
+        {MouseCursor::BottomLeftCornerResizeCursor, "sw-resize"},
+        {MouseCursor::BottomRightCornerResizeCursor, "se-resize"}
     };
     
     for (const auto& mapping : mappings) {
@@ -1436,7 +1428,7 @@ void WaylandWindowSystem::deleteMouseCursor(WaylandCursor cursorHandle)
 }
 
 WaylandCursor WaylandWindowSystem::createStandardMouseCursor(MouseCursor::StandardCursorType type)
-{    
+{
     WaylandCursor cursor;
     cursor.standardCursor = (int)type;
     cursor.cursorImage = nullptr;
@@ -1473,8 +1465,8 @@ void WaylandWindowSystem::setupDataDeviceCallbacks()
         };
     };
     
-    dataDevice.on_enter() = [this](uint32_t serial, wayland::surface_t surface, 
-                                  double x, double y, wayland::data_offer_t offer) {
+    dataDevice.on_enter() = [this](uint32_t serial, wayland::surface_t surface,
+                                   double x, double y, wayland::data_offer_t offer) {
         dragTargetWindow = findWindowBySurface(surface);
         currentOffer = offer;
         currentDragInfo = ComponentPeer::DragInfo{}; // Reset
@@ -1484,9 +1476,9 @@ void WaylandWindowSystem::setupDataDeviceCallbacks()
         // Accept the offer first so we can read data
         if (hasFiles) {
             offer.accept(serial, "text/uri-list");
-            offer.set_actions(wayland::data_device_manager_dnd_action::copy | 
-                             wayland::data_device_manager_dnd_action::move,
-                             wayland::data_device_manager_dnd_action::copy);
+            offer.set_actions(wayland::data_device_manager_dnd_action::copy |
+                              wayland::data_device_manager_dnd_action::move,
+                              wayland::data_device_manager_dnd_action::copy);
             
             // Read file data immediately
             readOfferData("text/uri-list", [this, x, y](const String& data) {
@@ -1502,10 +1494,10 @@ void WaylandWindowSystem::setupDataDeviceCallbacks()
                 dragTargetWindow->peer->handleDragMove(currentDragInfo);
             });
         } else if (hasText) {
-            offer.accept(serial, "text/plain");  
+            offer.accept(serial, "text/plain");
             offer.set_actions(wayland::data_device_manager_dnd_action::copy,
-                             wayland::data_device_manager_dnd_action::copy);
-                             
+                              wayland::data_device_manager_dnd_action::copy);
+            
             // Read text data immediately
             readOfferData("text/plain", [this, x, y](const String& data) {
                 currentDragInfo.text = data;
@@ -1515,22 +1507,16 @@ void WaylandWindowSystem::setupDataDeviceCallbacks()
         }
     };
     
-    dataDevice.on_motion() = [this](uint32_t time, double x, double y) {        
+    dataDevice.on_motion() = [this](uint32_t time, double x, double y) {
         if (!dragTargetWindow || !dragTargetWindow->peer) return;
         
-        // Use cached data with updated position
         currentDragInfo.position = Point<int>(x, y);
-        bool accepted = dragTargetWindow->peer->handleDragMove(currentDragInfo);
-        
-        if (!accepted) {
-            // Could reject the offer here if needed
-        }
+        dragTargetWindow->peer->handleDragMove(currentDragInfo);
     };
     
     dataDevice.on_drop() = [this]() {
         if (!dragTargetWindow || !dragTargetWindow->peer) return;
         
-        // Use the cached data for the drop
         bool accepted = dragTargetWindow->peer->handleDragDrop(currentDragInfo);
         if (accepted && currentOffer) {
             currentOffer.finish();
@@ -1546,24 +1532,23 @@ void WaylandWindowSystem::setupDataDeviceCallbacks()
     };
 }
 
-// Read data from offer
 void WaylandWindowSystem::readOfferData(const std::string& mimeType, std::function<void(const String&)> callback) {
     if (!currentOffer) {
         callback("");
         return;
     }
-
+    
     int pipeFds[2];
     if (pipe(pipeFds) == -1) {
         callback("");
         return;
     }
-
+    
     currentOffer.receive(mimeType, pipeFds[1]);
     close(pipeFds[1]);
-
+    
     roundtrip(); // Request flush of send buffers
-
+    
     // Wait for data to become available
     fd_set fds;
     FD_ZERO(&fds);
@@ -1571,10 +1556,10 @@ void WaylandWindowSystem::readOfferData(const std::string& mimeType, std::functi
     struct timeval timeout;
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
-
+    
     int ret = select(pipeFds[0] + 1, &fds, nullptr, nullptr, &timeout);
     String data;
-
+    
     if (ret > 0 && FD_ISSET(pipeFds[0], &fds)) {
         char buffer[4096];
         ssize_t bytesRead;
@@ -1587,7 +1572,7 @@ void WaylandWindowSystem::readOfferData(const std::string& mimeType, std::functi
             data += String::createStringFromData(buffer, static_cast<int>(bytesRead));
         }
     }
-
+    
     close(pipeFds[0]);
     callback(data);
 }
@@ -1607,7 +1592,6 @@ void WaylandWindowSystem::copyTextToClipboard(const String& text)
     clipboardSource.offer("text/plain;charset=utf-8");
     clipboardSource.offer("UTF8_STRING");
     
-    // Set up callbacks
     clipboardSource.on_send() = [this](const std::string& mimeType, int fd) {
         handleDataSourceSend(clipboardSource, mimeType, fd);
     };
@@ -1626,8 +1610,8 @@ String WaylandWindowSystem::getTextFromClipboard() const
     return currentClipboardText;
 }
 
-bool WaylandWindowSystem::externalDragFileInit(WaylandWindow* window, const StringArray& files, 
-                                        bool canMoveFiles, std::function<void()>&& callback)
+bool WaylandWindowSystem::externalDragFileInit(WaylandWindow* window, const StringArray& files,
+                                               bool canMoveFiles, std::function<void()>&& callback)
 {
     if (!dataDeviceManager || !window || files.isEmpty())
         return false;
@@ -1636,8 +1620,6 @@ bool WaylandWindowSystem::externalDragFileInit(WaylandWindow* window, const Stri
     dragFiles = files;
     dragCanMoveFiles = canMoveFiles;
     dragCompletionCallback = std::move(callback);
-    
-    // Create data source for drag
     dragSource = dataDeviceManager.create_data_source();
     
     // Offer file URI list
@@ -1645,14 +1627,14 @@ bool WaylandWindowSystem::externalDragFileInit(WaylandWindow* window, const Stri
     dragSource.offer("text/plain");
     
     setupDragSource(files, {}, canMoveFiles);
-
+    
     // Start the drag
     dataDevice.start_drag(dragSource, window->surface, nullptr, currentMouseSerial);
     return true;
 }
 
-bool WaylandWindowSystem::externalDragTextInit(WaylandWindow* window, const String& text, 
-                                        std::function<void()>&& callback)
+bool WaylandWindowSystem::externalDragTextInit(WaylandWindow* window, const String& text,
+                                               std::function<void()>&& callback)
 {
     if (!dataDeviceManager || !window || text.isEmpty())
         return false;
@@ -1660,8 +1642,6 @@ bool WaylandWindowSystem::externalDragTextInit(WaylandWindow* window, const Stri
     dragWindow = window;
     dragText = text;
     dragCompletionCallback = std::move(callback);
-    
-    // Create data source for drag
     dragSource = dataDeviceManager.create_data_source();
     
     // Offer text types
@@ -1698,7 +1678,7 @@ void WaylandWindowSystem::setupDragSource(const StringArray& files, const String
             dragCompletionCallback();
         dragCompletionCallback = nullptr;
     };
-
+    
     // Set supported actions
     if (canMoveFiles)
         dragSource.set_actions(wayland::data_device_manager_dnd_action::move | wayland::data_device_manager_dnd_action::copy);
@@ -1706,7 +1686,7 @@ void WaylandWindowSystem::setupDragSource(const StringArray& files, const String
         dragSource.set_actions(wayland::data_device_manager_dnd_action::copy);
 }
 
-void WaylandWindowSystem::handleDataSourceSend(wayland::data_source_t source, 
+void WaylandWindowSystem::handleDataSourceSend(wayland::data_source_t source,
                                                const std::string& mimeType, int fd)
 {
     String dataToSend;
@@ -1780,6 +1760,5 @@ bool WaylandWindowSystem::isKeyCurrentlyDown(int keyCode)
 JUCE_IMPLEMENT_SINGLETON (WaylandWindowSystem)
 
 } // namespace juce
-
 
 

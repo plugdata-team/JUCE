@@ -646,6 +646,10 @@ public:
             eglTerminate (eglDisplay);
             eglDisplay = EGL_NO_DISPLAY;
         }
+        
+        if(embeddedWindow) {
+          WaylandWindowSystem::getInstance()->destroyWindow(embeddedWindow);
+        }
     }
 
     InitResult initialiseOnRenderThread (OpenGLContext& c)
@@ -765,6 +769,12 @@ public:
 
     void shutdownOnRenderThread()
     {
+        if (makeActive()) {
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);  // or your background color
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            eglSwapBuffers(eglDisplay, eglSurface.get());
+        }
+      
         context = nullptr;
         deactivateCurrentContext();
         eglSurface.reset();
@@ -913,4 +923,5 @@ bool OpenGLHelpers::isContextActive()
 }
 
 } // namespace juce
+
 
