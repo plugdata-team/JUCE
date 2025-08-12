@@ -113,7 +113,6 @@ struct WaylandDisplay {
     int physicalWidth = 0, physicalHeight = 0;
     int refreshRate = 0;
     int scaleFactor = 1;
-    String make, model, name;
     bool isDone:1 = false;
     bool isPrimary:1 = false;
 };
@@ -422,7 +421,7 @@ void WaylandWindowSystem::updateRegions (WaylandWindow* window) const
     {
         auto opaqueRegion = WaylandSymbols::getInstance()->compositorCreateRegion (compositor);
         WaylandSymbols::getInstance()->regionAdd (opaqueRegion, 0, 0, window->bounds.getWidth(), window->bounds.getHeight());
-        WaylandSymbols::getInstance()->surfaceSetInputRegion (window->surface, opaqueRegion);
+        WaylandSymbols::getInstance()->surfaceSetOpaqueRegion (window->surface, opaqueRegion);
         WaylandSymbols::getInstance()->regionDestroy (opaqueRegion);
     }
 }
@@ -501,7 +500,7 @@ void WaylandWindowSystem::setBounds (WaylandWindow* window, Rectangle<int> b)
     if (window->parentWindow)
     {
         auto parentBounds = getBounds (window->parentWindow);
-        window->bounds = b.translated (parentBounds.getX(), parentBounds.getY());
+        window->bounds = b;
         WaylandSymbols::getInstance()->subsurfaceSetPosition (window->handle.subsurface, window->bounds.getX(), window->bounds.getY());
         WaylandSymbols::getInstance()->surfaceCommit (window->surface);
         WaylandSymbols::getInstance()->surfaceCommit (window->parentWindow->surface);
@@ -1011,16 +1010,14 @@ void WaylandWindowSystem::setupDisplay (wl_output* output)
                        int32 x, int32 y,
                        int32 physicalWidth, int32 physicalHeight,
                        int32,
-                       const char* make,
-                       const char* model,
+                       const char*,
+                       const char*,
                        int32)
         {
             auto* waylandDisplay = static_cast<WaylandDisplay*> (data);
             waylandDisplay->physicalWidth = physicalWidth;
             waylandDisplay->physicalHeight = physicalHeight;
             waylandDisplay->bounds = waylandDisplay->bounds.withPosition (x, y);
-            waylandDisplay->make = String::fromUTF8 (make);
-            waylandDisplay->model = String::fromUTF8 (model);
         },
         .mode = [] (void* data, wl_output*, uint32 flags, int32 width, int32 height, int32 refreshRate)
         {
@@ -1042,11 +1039,7 @@ void WaylandWindowSystem::setupDisplay (wl_output* output)
             auto* waylandDisplay = static_cast<WaylandDisplay*> (data);
             waylandDisplay->scaleFactor = factor;
         },
-        .name = [] (void* data, wl_output*, const char* name)
-        {
-            auto* waylandDisplay = static_cast<WaylandDisplay*> (data);
-            waylandDisplay->name = String::fromUTF8 (name);
-        },
+        .name = [] (void*, wl_output*, const char*) {},
         .description = [] (void*, wl_output*, const char*) {}
     };
     
