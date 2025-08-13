@@ -1642,6 +1642,12 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays (float masterScale)
         else
             juceDisplays.add (d);
     }
+    
+    if (!juceDisplays.isEmpty() && !juceDisplays.getReference (0).isMain)
+    {
+        juceDisplays.getReference (0).isMain = true;
+    }
+    
     return juceDisplays;
 }
 
@@ -2013,3 +2019,4 @@ void processWaylandFd()
 }
 
 } // namespace juce
+
