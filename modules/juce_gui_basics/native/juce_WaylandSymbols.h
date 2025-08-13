@@ -27,6 +27,7 @@ struct wl_surface_listener;
 struct wl_seat;
 struct wl_seat_listener;
 struct wl_touch;
+struct wl_touch_listener;
 struct wl_pointer_listener;
 struct wl_keyboard_listener;
 struct wl_data_device_manager;
@@ -346,6 +347,7 @@ public:
     JUCE_DECLARE_INLINE_FUNCTION (wl_keyboard_destroy, keyboardDestroy,
                                          (wl_keyboard*),
                                          void)
+    JUCE_DECLARE_INLINE_FUNCTION(wl_touch_add_listener, touchAddListener, (wl_touch*, const wl_touch_listener*, void*), int)
 
     // wl_data_device_manager
     JUCE_DECLARE_INLINE_FUNCTION (wl_data_device_manager_create_data_source, dataDeviceManagerCreateDataSource,

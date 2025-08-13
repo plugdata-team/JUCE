@@ -30,7 +30,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         }
         else
         {
-            bool isSubsurface = (windowStyleFlags & windowIsTemporary) && !(windowStyleFlags & windowHasTitleBar);
+            bool isSubsurface = (windowStyleFlags & windowIsTemporary) && ! (windowStyleFlags & windowHasTitleBar);
             windowH = WaylandWindowSystem::getInstance()->createWindow (isSubsurface, this);
         }
         
@@ -83,7 +83,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     
     void setBounds (const Rectangle<int>& newBounds, bool isNowFullScreen) override
     {
-        ignoreUnused(isNowFullScreen); // What to do with this?
+        ignoreUnused (isNowFullScreen); // What to do with this?
             
         const auto correctedNewBounds = newBounds.withSize (jmax (1, newBounds.getWidth()),
                                                             jmax (1, newBounds.getHeight()));
@@ -250,7 +250,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     
     void setIcon (const Image& newIcon) override
     {
-        ignoreUnused(newIcon);
+        ignoreUnused (newIcon);
         jassertfalse;
         // Not supported, wayland sets the icon from a .desktop file instead
     }

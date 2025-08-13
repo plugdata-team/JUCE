@@ -97,7 +97,6 @@ struct WaylandWindow {
     WaylandComponentPeer* peer;
     std::unique_ptr<WaylandShmBuffer> currentBuffer = nullptr;
     Rectangle<int> bounds;
-    bool isConfigured:1 = false;
     bool isVisible:1 = true;
     bool isFullscreen:1 = false;
     bool isMinimised:1 = false;
@@ -163,7 +162,22 @@ WaylandWindowSystem::WaylandWindowSystem()
             else if (interface =="wl_seat")
             {
                 self->seat = static_cast<wl_seat*>(WaylandSymbols::getInstance()->registryBind (r, name, WaylandSymbols::getInstance()->seatInterface, std::min (version, 7u)));
-                self->setupGlobalInput();
+                
+                
+                static const wl_seat_listener seatListener =
+                {
+                    .capabilities = [] (void* d, wl_seat*, uint32 capabilities)
+                    {
+                        auto* s = static_cast<WaylandWindowSystem*> (d);
+                        s->hasTouch = capabilities & WL_SEAT_CAPABILITY_TOUCH;
+                        s->hasMouse = capabilities & WL_SEAT_CAPABILITY_POINTER;
+                        s->hasKeyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+                        s->setupGlobalInput();
+                    },
+                    .name = [] (void*, wl_seat*, const char*) {}
+                };
+                
+                WaylandSymbols::getInstance()->seatAddListener (self->seat, &seatListener, self);
             }
             else if (interface == "wl_data_device_manager")
             {
@@ -249,7 +263,10 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
     window->isOpaque = ! (peer->getStyleFlags() & ComponentPeer::windowIsSemiTransparent);
     window->isAlwaysOnTop = peer->getComponent().isAlwaysOnTop();
     
-    updateRegions(window);
+    updateRegions (window);
+    
+    static bool isConfigured;
+    isConfigured = false;
 
     if (isSubsurface)
     {
@@ -317,8 +334,8 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
                 WaylandSymbols::getInstance()->decorFrameCommit (frame, state, configuration);
                 WaylandSymbols::getInstance()->decorStateFree (state);
 
-                getInstance()->updateRegions(w);
-                w->isConfigured = true;
+                getInstance()->updateRegions (w);
+                isConfigured = true;
             },
                 .close = [] (libdecor_frame*, void* user_data){
                     auto* w = static_cast<WaylandWindow*> (user_data);
@@ -346,10 +363,10 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
         
         // Wait for initial configure
         int timeout = 50;
-        while (! window->isConfigured && timeout-- > 0)
+        while (! isConfigured && timeout-- > 0)
         {
             WaylandSymbols::getInstance()->displayDispatchPending (display);
-            if (! window->isConfigured)
+            if (! isConfigured)
             {
                 usleep (10000);
                 WaylandSymbols::getInstance()->displayDispatch (display);
@@ -462,6 +479,9 @@ void WaylandWindowSystem::updateConstraints (WaylandWindow* window) const
 
 void WaylandWindowSystem::destroyWindow (WaylandWindow* window)
 {
+    if(hasTouch)
+        currentTouches->deleteAllTouchesForPeer (window->peer);
+    
     auto it = findInZOrder (window);
     if (it != zOrder.end())
         zOrder.erase (it);
@@ -682,7 +702,7 @@ void WaylandWindowSystem::setVisible (WaylandWindow* window, bool shouldBeVisibl
             WaylandSymbols::getInstance()->surfaceCommit (window->parentWindow->surface);
         }
     }
-    updateRegions(window);
+    updateRegions (window);
 }
 
 void WaylandWindowSystem::setFullscreen (WaylandWindow* window, bool shouldBeFullscreen)
@@ -839,6 +859,11 @@ bool WaylandWindowSystem::isWaylandAvailable()
     return initialised;
 }
 
+bool WaylandWindowSystem::isTouchAvailable()
+{
+  return hasTouch;
+}
+
 void WaylandWindowSystem::setupGlobalInput()
 {
     if (! seat)
@@ -926,7 +951,7 @@ void WaylandWindowSystem::setupGlobalInput()
             if (auto* window = self->findWindowBySurface (surface))
             {
                 // We can't track global mouse after we leave our surface, so set it to somewhere outside the window
-                self->currentMousePosition = Point<float> (-1.0f, -1.0f);
+                self->currentMousePosition = MouseInputSource::offscreenMousePos;
                 self->handleMouseEvent (window);
                 
                 // Send mouse-up events for any held mouse buttons
@@ -995,11 +1020,113 @@ void WaylandWindowSystem::setupGlobalInput()
         .axis_discrete = [] (void *, wl_pointer*, uint32, int32) {}
     };
     
-    globalKeyboard = WaylandSymbols::getInstance()->seatGetKeyboard (seat);
-    WaylandSymbols::getInstance()->keyboardAddListener (globalKeyboard, &keyboardListener, this);
+    static const wl_touch_listener touchListener =
+    {
+        .down = [] (void* data, wl_touch*, uint32 serial, uint32 time, wl_surface* surface, int32 id, wl_fixed_t x, wl_fixed_t y)
+        {
+            auto* self = static_cast<WaylandWindowSystem*> (data);
+            if (auto* window = self->findWindowBySurface (surface))
+            {
+                if (window->ignoresMouse)
+                    return;
+                    
+                self->pointerFocused = window;
+                self->currentTouchTime = time;
+                
+                auto localPos = WaylandSymbols::getInstance()->fixedToPoint<float>(x, y);
+                int touchIndex = self->currentTouches->getIndexOfTouch (window->peer, id + 1);
+                
+                // Update global mouse position for primary touch
+                if (touchIndex == 0)
+                {
+                    self->currentMouseSerial = serial;
+                    self->currentMousePosition = window->peer->localToGlobal (localPos);
+                    self->lastFocusedWindow = (window->parentWindow || ! window->isVisible) ?
+                                             self->lastFocusedWindow : window;
+                }
+                
+                self->handleTouchEvent (window, localPos, touchIndex, MouseEventFlags::down);
+            }
+        },
+        .up = [] (void* data, wl_touch*, uint32 serial, uint32 time, int32 id)
+        {
+            auto* self = static_cast<WaylandWindowSystem*> (data);
+            if (auto* window = self->pointerFocused)
+            {
+                int touchIndex = self->currentTouches->getIndexOfTouch (window->peer, id + 1);
+                auto localPos = window->peer->globalToLocal (self->currentMousePosition);
+                 
+                self->currentTouchTime = time;
+                 
+                self->currentTouches->clearTouch (touchIndex);
+                MouseEventFlags eventType = self->currentTouches->areAnyTouchesActive() ?
+                                           MouseEventFlags::up : MouseEventFlags::upAndCancel;
+                
+                self->handleTouchEvent (window, localPos, touchIndex, eventType);
+                
+                // Clear touch focus if no active touches
+                if (! self->currentTouches->areAnyTouchesActive())
+                {
+                    self->handleTouchEvent (window, MouseInputSource::offscreenMousePos, touchIndex, MouseEventFlags::up);
+                }
+            }
+        },
+        .motion = [] (void* data, wl_touch*, uint32 time, int32 id, wl_fixed_t x, wl_fixed_t y)
+        {
+            auto* self = static_cast<WaylandWindowSystem*> (data);
+            if (auto* window = self->pointerFocused)
+            {
+                int touchIndex = self->currentTouches->getIndexOfTouch (window->peer, id + 1);
+                auto localPos = WaylandSymbols::getInstance()->fixedToPoint<float>(x, y);
+                
+                self->currentTouchTime = time;
+                 
+                // Update global mouse position for primary touch
+                if (touchIndex == 0)
+                    self->currentMousePosition = window->peer->localToGlobal (localPos);
+                
+                self->handleTouchEvent (window, localPos, touchIndex, MouseEventFlags::none);
+            }
+        },
+        .frame = [] (void*, wl_touch*) {},
+        .cancel = [] (void* data, wl_touch*)
+        {
+            auto* self = static_cast<WaylandWindowSystem*> (data);
+            if (auto* window = self->pointerFocused)
+            {
+                auto localPos = window->peer->globalToLocal (self->currentMousePosition);
+                for (auto touchIndex : self->currentTouches->getAllTouchIndicesForPeer (window->peer))
+                {
+                    // Send upAndCancel for each touch index
+                    self->handleTouchEvent (window, localPos, touchIndex, MouseEventFlags::upAndCancel);
+                }
+                self->currentTouches->clear();
+            }
+         },
+         .shape = [] (void* data, wl_touch* touch, int32 id, wl_fixed_t major, wl_fixed_t minor) {
+             // TODO: this could be converted into "pressure", but I don't have a touch device that supports this, so I can't test it
+         },
+         .orientation = [] (void*, wl_touch*, int32, wl_fixed_t) {}
+    };
+       
+    if (hasTouch)
+    {
+       currentTouches = std::make_unique<MultiTouchMapper<int32>>();
+       globalTouch = WaylandSymbols::getInstance()->seatGetTouch (seat);
+       WaylandSymbols::getInstance()->touchAddListener (globalTouch, &touchListener, this);
+    }
     
-    globalPointer = WaylandSymbols::getInstance()->seatGetPointer (seat);
-    WaylandSymbols::getInstance()->pointerAddListener (globalPointer, &pointerListener, this);
+    if (hasMouse)
+    {
+      globalPointer = WaylandSymbols::getInstance()->seatGetPointer (seat);
+      WaylandSymbols::getInstance()->pointerAddListener (globalPointer, &pointerListener, this);
+    }
+    
+    if (hasKeyboard)
+    {
+      globalKeyboard = WaylandSymbols::getInstance()->seatGetKeyboard (seat);
+      WaylandSymbols::getInstance()->keyboardAddListener (globalKeyboard, &keyboardListener, this);
+    }
 }
 
 void WaylandWindowSystem::setupDisplay (wl_output* output)
@@ -1217,6 +1344,63 @@ void WaylandWindowSystem::handleMouseEvent (WaylandWindow* window)
                                     MouseInputSource::defaultPressure,  // Default pressure
                                     MouseInputSource::defaultOrientation, // Default orientation
                                     currentMouseTime);
+}
+
+void WaylandWindowSystem::handleTouchEvent (WaylandWindow* window, Point<float> localPos, int touchIndex, MouseEventFlags eventType)
+{
+    ModifierKeys modsToSend = ModifierKeys::currentModifiers;
+    
+    if (eventType == MouseEventFlags::down)
+    {
+        // For touch down, simulate left button press
+        ModifierKeys::currentModifiers = ModifierKeys::currentModifiers
+            .withoutMouseButtons()
+            .withFlags (ModifierKeys::leftButtonModifier);
+        modsToSend = ModifierKeys::currentModifiers;
+        
+        // Send mouse-enter
+        window->peer->handleMouseEvent (MouseInputSource::InputSourceType::touch,
+                                     localPos,
+                                     modsToSend.withoutMouseButtons(),
+                                     MouseInputSource::defaultPressure,
+                                     MouseInputSource::defaultOrientation,
+                                     currentTouchTime, {}, touchIndex);
+        
+        if (! ComponentPeer::isValidPeer (window->peer)) // (in case this component was deleted by the event)
+          return;
+    }
+    else if (eventType == MouseEventFlags::up || eventType == MouseEventFlags::upAndCancel)
+    {
+        modsToSend = modsToSend.withoutMouseButtons();
+        
+        if (eventType == MouseEventFlags::upAndCancel)
+        {
+            ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
+            modsToSend = ModifierKeys::currentModifiers;
+        }
+    }
+    
+    // Send the main touch event
+    window->peer->handleMouseEvent (MouseInputSource::InputSourceType::touch,
+                                 localPos,
+                                 modsToSend,
+                                 MouseInputSource::defaultPressure,
+                                 MouseInputSource::defaultOrientation,
+                                 currentTouchTime, {}, touchIndex);
+    
+    if (! ComponentPeer::isValidPeer (window->peer)) // (in case this component was deleted by the event)
+        return;
+    
+    // Send mouse exit event for touch up
+    if (eventType == MouseEventFlags::up || eventType == MouseEventFlags::upAndCancel)
+    {
+        window->peer->handleMouseEvent (MouseInputSource::InputSourceType::touch,
+                                     MouseInputSource::offscreenMousePos,
+                                     modsToSend,
+                                     MouseInputSource::defaultPressure,
+                                     MouseInputSource::defaultOrientation,
+                                     currentTouchTime, {}, touchIndex);
+    }
 }
 
 void WaylandWindowSystem::handleKeyEvent (WaylandWindow* window, uint32 waylandKey, bool pressed)
@@ -1550,7 +1734,7 @@ WaylandCursor WaylandWindowSystem::createCustomMouseCursorInfo (const Image& ima
     auto imageW = image.getWidth();
     auto imageH = image.getHeight();
     
-    auto argbImage = image.convertedToFormat(Image::ARGB);
+    auto argbImage = image.convertedToFormat (Image::ARGB);
     
     cursor.cursorImage = new WaylandShmBuffer (imageW, imageH);
     

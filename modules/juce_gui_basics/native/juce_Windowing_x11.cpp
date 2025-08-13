@@ -615,7 +615,7 @@ bool LinuxComponentPeer::isActiveApplication = false;
 //==============================================================================
 ComponentPeer* Component::createNewPeer (int styleFlags, void* nativeWindowToAttachTo)
 {   
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())  {
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())  {
         return new WaylandComponentPeer (*this, styleFlags, (WaylandWindow*) nativeWindowToAttachTo);
     }
     else {
@@ -625,7 +625,7 @@ ComponentPeer* Component::createNewPeer (int styleFlags, void* nativeWindowToAtt
 
 //==============================================================================
 JUCE_API bool JUCE_CALLTYPE Process::isForegroundProcess()    { 
-        if(WaylandWindowSystem::getInstance()->isWaylandAvailable())  {
+        if (WaylandWindowSystem::getInstance()->isWaylandAvailable())  {
             return WaylandComponentPeer::isActiveApplication; 
         }
         else {
@@ -645,7 +645,7 @@ void Desktop::setKioskComponent (Component* comp, bool enableOrDisable, bool)
 
 void Displays::findDisplays (float masterScale)
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable()) {
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable()) {
         displays = WaylandWindowSystem::getInstance()->findDisplays(masterScale);
     }
     else if (XWindowSystem::getInstance()->getDisplay() != nullptr)
@@ -659,7 +659,7 @@ void Displays::findDisplays (float masterScale)
 
 bool Desktop::canUseSemiTransparentWindows() noexcept
 {   
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable()) 
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable()) 
         return true;
     
     return XWindowSystem::getInstance()->canUseSemiTransparentWindows();
@@ -718,7 +718,7 @@ static bool screenSaverAllowed = true;
 
 void Desktop::setScreenSaverEnabled (bool isEnabled)
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
         return; // TODO: Not supported?
     }
@@ -754,12 +754,17 @@ bool detail::MouseInputSourceList::addSource()
 
 bool detail::MouseInputSourceList::canUseTouch() const
 {
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    {
+      return WaylandWindowSystem::getInstance()->isTouchAvailable();
+    }
+    
     return false;
 }
 
 Point<float> MouseInputSource::getCurrentRawMousePosition()
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
         return WaylandWindowSystem::getInstance()->getCurrentMousePosition();
     }
@@ -769,7 +774,7 @@ Point<float> MouseInputSource::getCurrentRawMousePosition()
 
 void MouseInputSource::setRawMousePosition (Point<float> newPosition)
 {   
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
         return; // TODO: Not supported?
     }
@@ -795,7 +800,7 @@ public:
 
     ~PlatformSpecificHandle()
     {
-        if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+        if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
         {
             WaylandWindowSystem::getInstance()->deleteMouseCursor (cursorHandle.wayland);
         }
@@ -807,7 +812,7 @@ public:
 
     static void showInWindow (PlatformSpecificHandle* handle, ComponentPeer* peer)
     {
-        if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+        if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
         {
             const auto cursor = handle != nullptr ? handle->cursorHandle.wayland : WaylandCursor{0, nullptr};
             WaylandWindowSystem::getInstance()->showCursor (cursor);
@@ -824,7 +829,7 @@ private:
     {
         const auto image = info.image.getImage();
         CursorHandle handle;
-        if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+        if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
         {
             handle.wayland = WaylandWindowSystem::getInstance()->createCustomMouseCursorInfo (image.rescaled ((int) (image.getWidth()  / info.image.getScale()),
                                                                                           (int) (image.getHeight() / info.image.getScale())), info.hotspot);
@@ -840,7 +845,7 @@ private:
     static CursorHandle makeHandle (MouseCursor::StandardCursorType type)
     {   
         CursorHandle handle;
-        if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+        if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
         {
             handle.wayland = WaylandWindowSystem::getInstance()->createStandardMouseCursor (type);
         }
@@ -890,12 +895,12 @@ static WaylandComponentPeer* getWaylandPeerForDragEvent (Component* sourceComp)
 bool DragAndDropContainer::performExternalDragDropOfFiles (const StringArray& files, bool canMoveFiles,
                                                            Component* sourceComp, std::function<void()> callback)
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
-        if (auto* peer = getWaylandPeerForDragEvent(sourceComp))
+        if (auto* peer = getWaylandPeerForDragEvent (sourceComp))
         {
-            auto* waylandWindow = WaylandWindowSystem::getInstance()->getWaylandWindowForPeer(peer);
-            return WaylandWindowSystem::getInstance()->externalDragFileInit(waylandWindow, files, canMoveFiles, std::move(callback));
+            auto* waylandWindow = WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (peer);
+            return WaylandWindowSystem::getInstance()->externalDragFileInit (waylandWindow, files, canMoveFiles, std::move (callback));
         }
         return false;
     }
@@ -911,12 +916,12 @@ bool DragAndDropContainer::performExternalDragDropOfFiles (const StringArray& fi
 bool DragAndDropContainer::performExternalDragDropOfText (const String& text, Component* sourceComp,
                                                           std::function<void()> callback)
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
-        if (auto* peer = getWaylandPeerForDragEvent(sourceComp))
+        if (auto* peer = getWaylandPeerForDragEvent (sourceComp))
         {
-            auto* waylandWindow = WaylandWindowSystem::getInstance()->getWaylandWindowForPeer(peer);
-            return WaylandWindowSystem::getInstance()->externalDragTextInit(waylandWindow, text, std::move(callback));
+            auto* waylandWindow = WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (peer);
+            return WaylandWindowSystem::getInstance()->externalDragTextInit (waylandWindow, text, std::move (callback));
         }
         return false;
     }
@@ -931,9 +936,9 @@ bool DragAndDropContainer::performExternalDragDropOfText (const String& text, Co
 
 void SystemClipboard::copyTextToClipboard (const String& clipText)
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
-        WaylandWindowSystem::getInstance()->copyTextToClipboard(clipText);
+        WaylandWindowSystem::getInstance()->copyTextToClipboard (clipText);
         return;
     }
     
@@ -942,7 +947,7 @@ void SystemClipboard::copyTextToClipboard (const String& clipText)
 
 String SystemClipboard::getTextFromClipboard()
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
         return WaylandWindowSystem::getInstance()->getTextFromClipboard();
     }
@@ -953,7 +958,7 @@ String SystemClipboard::getTextFromClipboard()
 //==============================================================================
 bool KeyPress::isKeyCurrentlyDown (int keyCode)
 {
-    if(WaylandWindowSystem::getInstance()->isWaylandAvailable())
+    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
     {
        return WaylandWindowSystem::getInstance()->isKeyCurrentlyDown (keyCode);
     }

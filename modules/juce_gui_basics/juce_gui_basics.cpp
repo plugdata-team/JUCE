@@ -158,7 +158,7 @@
 #include "detail/juce_StandardCachedComponentImage.h"
 
 //==============================================================================
-#if JUCE_IOS || JUCE_WINDOWS
+#if JUCE_IOS || JUCE_WINDOWS || JUCE_LINUX || JUCE_BSD
  #include "native/juce_MultiTouchMapper.h"
 #endif
 
