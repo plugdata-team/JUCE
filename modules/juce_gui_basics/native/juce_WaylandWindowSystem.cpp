@@ -479,7 +479,7 @@ void WaylandWindowSystem::updateConstraints (WaylandWindow* window) const
 
 void WaylandWindowSystem::destroyWindow (WaylandWindow* window)
 {
-    if(hasTouch)
+    if (hasTouch)
         currentTouches->deleteAllTouchesForPeer (window->peer);
     
     auto it = findInZOrder (window);
@@ -568,19 +568,6 @@ void WaylandWindowSystem::startHostManagedResize (WaylandWindow* window, Resizab
         WaylandSymbols::getInstance()->decorFrameResize (window->handle.frame, seat, currentMouseSerial, edge);
 }
 
-// Helper to get all subsurfaces with the same parent, sorted by z-order
-std::vector<WaylandWindow*> WaylandWindowSystem::getSubsurfacesForParent (WaylandWindow* parent) const {
-    std::vector<WaylandWindow*> subsurfaces;
-    for (WaylandWindow* window : zOrder)
-    {
-        if (window->handle.subsurface && window->parentWindow == parent)
-        {
-            subsurfaces.push_back (window);
-        }
-    }
-    return subsurfaces;
-}
-
 void WaylandWindowSystem::toFront (WaylandWindow* window, bool commit)
 {
     auto it = findInZOrder (window);
@@ -608,7 +595,7 @@ void WaylandWindowSystem::toFront (WaylandWindow* window, bool commit)
         if (! inserted)
             zOrder.push_back (window);
     }
-    
+        
     if (commit)
         enforceOrder();
 }
@@ -641,39 +628,83 @@ void WaylandWindowSystem::toBehind (WaylandWindow* window, WaylandWindow* refere
     WaylandSymbols::getInstance()->surfaceCommit (referenceWindow->surface);
 }
 
+
+// Wayland can't move windows "to front", it can only move it "just above" another windows,
+// as long as they are part of the same parent structure
+// So we need to keep track z-order manually, and enforce that order whenever needed by going down the chain
+// and placing each window "just above" the last.
 void WaylandWindowSystem::enforceOrder()
 {
-    // Group subsurfaces by parent and enforce order for each group
-    std::set<WaylandWindow*> processedParents;
-    
+    std::map<WaylandWindow*, std::vector<WaylandWindow*>> windowsByParent;
     for (WaylandWindow* window : zOrder)
     {
-        auto* parent = window->parentWindow;
-        if (parent && processedParents.find (parent) == processedParents.end())
+        if (window->parentWindow)
+            windowsByParent[window->parentWindow].push_back (window);
+        else
+            windowsByParent[window].push_back (window);
+    }
+    
+    for (auto& [parent, children] : windowsByParent)
+    {
+        if (children.empty())
+            continue;
+        
+        // First, split subsurfaces into a list of subsurfaces above and below the parent
+        std::vector<WaylandWindow*> subsurfacesAbove;
+        std::vector<WaylandWindow*> subsurfacesBelow;
+        bool above = false;
+        for (auto* child : children)
         {
-            // Get all subsurfaces for this parent in z-order
-            auto subsurfaces = getSubsurfacesForParent (parent);
-            
-            if (subsurfaces.size() <= 1)
-                return; // Nothing to stack
-            
-            // Work from bottom to top, making sure each window is placed above the previous one
-            for (size_t i = 1; i < subsurfaces.size(); i++)
+            if (child == parent)
             {
-                WaylandWindow* current = subsurfaces[i];
-                WaylandWindow* below = subsurfaces[i-1];
-                if (window->parentWindow)
-                    WaylandSymbols::getInstance()->subsurfacePlaceAbove (current->handle.subsurface, below->surface);
+                above = true;
             }
-            
-            // Commit all changes
-            for (WaylandWindow* subsurface : subsurfaces)
-                WaylandSymbols::getInstance()->surfaceCommit (subsurface->surface);
-            
-            WaylandSymbols::getInstance()->surfaceCommit (parent->surface);
-            
-            processedParents.insert (window->parentWindow);
+            else if (child->handle.subsurface && child->parentWindow == parent)
+            {
+                if (above)
+                    subsurfacesAbove.push_back (child);
+                else
+                    subsurfacesBelow.push_back (child);
+            }
         }
+        
+        // Stack subsurfaces below the parent
+        if (! subsurfacesBelow.empty())
+        {
+            WaylandSymbols::getInstance()->subsurfacePlaceBelow (
+                subsurfacesBelow[0]->handle.subsurface,
+                parent->surface);
+            
+            for (size_t i = 1; i < subsurfacesBelow.size(); ++i)
+            {
+                WaylandSymbols::getInstance()->subsurfacePlaceAbove (
+                    subsurfacesBelow[i]->handle.subsurface,
+                    subsurfacesBelow[i-1]->surface);
+            }
+        }
+
+        // Stack subsurfaces above the parent
+        if (! subsurfacesAbove.empty())
+        {
+            WaylandSymbols::getInstance()->subsurfacePlaceAbove (
+                subsurfacesAbove[0]->handle.subsurface,
+                parent->surface);
+
+            for (size_t i = 1; i < subsurfacesAbove.size(); ++i)
+            {
+                WaylandSymbols::getInstance()->subsurfacePlaceAbove (
+                    subsurfacesAbove[i]->handle.subsurface,
+                    subsurfacesAbove[i-1]->surface);
+            }
+        }
+        
+        for (auto* s : subsurfacesBelow)
+            WaylandSymbols::getInstance()->surfaceCommit (s->surface);
+
+        WaylandSymbols::getInstance()->surfaceCommit (parent->surface);
+
+        for (auto* s : subsurfacesAbove)
+            WaylandSymbols::getInstance()->surfaceCommit (s->surface);
     }
 }
 
@@ -950,6 +981,10 @@ void WaylandWindowSystem::setupGlobalInput()
             auto* self = static_cast<WaylandWindowSystem*> (data);
             if (auto* window = self->findWindowBySurface (surface))
             {
+                // Clear subsurface activation state, so it can be activated again
+                if (window->parentWindow)
+                    window->isActivated = false;
+                
                 // We can't track global mouse after we leave our surface, so set it to somewhere outside the window
                 self->currentMousePosition = MouseInputSource::offscreenMousePos;
                 self->handleMouseEvent (window);
@@ -991,6 +1026,15 @@ void WaylandWindowSystem::setupGlobalInput()
                 self->currentMouseSerial = serial;
                 self->currentMouseTime = time;
                 bool pressed = (state == WL_POINTER_BUTTON_STATE_PRESSED);
+                
+                // Subsurfaces don't get a configure callback, so we need to keep track of activation manually
+                if (pressed && window->parentWindow && ! window->isActivated)
+                {
+                    window->isActivated = true;
+                    self->toFront (window, true);
+                    window->peer->handleBroughtToFront();
+                }
+                
                 self->updateMouseModifiers (button, pressed);
                 self->handleMouseEvent (window);
             }
@@ -1317,15 +1361,15 @@ void WaylandWindowSystem::setupDataDeviceCallbacks()
             if (self->dragTargetWindow->peer->handleDragDrop (self->currentDragInfo))
                 WaylandSymbols::getInstance()->dataOfferFinish (self->currentOffer);
         },
-        .selection = [] (void* data, wl_data_device*, wl_data_offer*)
+        .selection = [] (void* data, wl_data_device*, wl_data_offer* offer)
         {
             auto* self = static_cast<WaylandWindowSystem*>(data);
-            // Accept any of these mime types
             auto callback = [] (const String& newClipboardText)
             {
                 getInstance()->currentClipboardText = newClipboardText;
             };
             
+            self->currentOffer = offer;
             self->readOfferData ("UTF8_STRING", callback);
             self->readOfferData ("text/plain", callback);
             self->readOfferData ("text/plain;charset=utf-8", callback);
@@ -1643,7 +1687,7 @@ Array<Displays::Display> WaylandWindowSystem::findDisplays (float masterScale)
             juceDisplays.add (d);
     }
     
-    if (!juceDisplays.isEmpty() && !juceDisplays.getReference (0).isMain)
+    if (! juceDisplays.isEmpty() && ! juceDisplays.getReference (0).isMain)
     {
         juceDisplays.getReference (0).isMain = true;
     }

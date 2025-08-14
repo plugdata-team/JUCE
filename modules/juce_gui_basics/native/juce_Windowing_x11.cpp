@@ -646,7 +646,7 @@ void Desktop::setKioskComponent (Component* comp, bool enableOrDisable, bool)
 void Displays::findDisplays (float masterScale)
 {
     if (WaylandWindowSystem::getInstance()->isWaylandAvailable()) {
-        displays = WaylandWindowSystem::getInstance()->findDisplays(masterScale);
+        displays = WaylandWindowSystem::getInstance()->findDisplays (masterScale);
     }
     else if (XWindowSystem::getInstance()->getDisplay() != nullptr)
     {
