@@ -37,7 +37,7 @@ public:
     
     // Window management
     WaylandWindow* findWindowBySurface (wl_surface* surface);
-    WaylandWindow* createWindow (bool isSubsurface, ComponentPeer* peer, WaylandWindow* parent = nullptr);
+    WaylandWindow* createWindow (bool isSubsurface, ComponentPeer* peer, bool alwaysOnTop, WaylandWindow* parent = nullptr);
     void destroyWindow (WaylandWindow* window);
     void setBounds (WaylandWindow* window, Rectangle<int> bounds);
     Rectangle<int> getBounds (WaylandWindow* window);

@@ -98,7 +98,6 @@ struct WaylandWindow {
     std::unique_ptr<WaylandShmBuffer> currentBuffer = nullptr;
     std::set<wl_output*> displays;
     Rectangle<int> bounds;
-    float scale = 1.0f;
     bool isVisible:1 = true;
     bool isFullscreen:1 = false;
     bool isMinimised:1 = false;
@@ -244,7 +243,7 @@ WaylandWindowSystem::~WaylandWindowSystem()
     clearSingletonInstance();
 }
 
-WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPeer* peer, WaylandWindow* parent)
+WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPeer* peer, bool alwaysOnTop, WaylandWindow* parent)
 {
     auto* window = new WaylandWindow();
     window->peer = dynamic_cast<WaylandComponentPeer*> (peer);
@@ -263,17 +262,18 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
     window->ignoresKeyboard = (peer->getStyleFlags() & ComponentPeer::windowIgnoresKeyPresses);
     window->ignoresMouse = (peer->getStyleFlags() & ComponentPeer::windowIgnoresMouseClicks);
     window->isOpaque = ! (peer->getStyleFlags() & ComponentPeer::windowIsSemiTransparent);
-    window->isAlwaysOnTop = peer->getComponent().isAlwaysOnTop();
+    window->isAlwaysOnTop = alwaysOnTop;
     
     static const struct wl_surface_listener surfaceListener = {
         .enter = [](void* data, struct wl_surface*, struct wl_output* output){
           auto* w = static_cast<WaylandWindow*> (data);
           w->displays.insert (output);
+          
           // If our window entered a new display, update scale
-          if (! ComponentPeer::isValidPeer (w->peer))
-            return;
-          if (auto* p = dynamic_cast<WaylandComponentPeer*> (w->peer))
-            p->updateScaleFactor();
+          auto newScale = getInstance()->getScaleFactorForWindow (w);
+          WaylandSymbols::getInstance()->surfaceSetBufferScale (w->surface, newScale);
+          if (ComponentPeer::isValidPeer (w->peer))
+            dynamic_cast<WaylandComponentPeer*> (w->peer)->updateScaleFactor();
         },
         .leave = [](void* data, struct wl_surface*, struct wl_output* output){
           auto* w = static_cast<WaylandWindow*> (data);
@@ -333,7 +333,7 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
                 }
                 if (! wasActivated && w->isActivated)
                 {
-                    getInstance()->toFront (w, true);
+                    //getInstance()->toFront (w, true);
                     w->peer->handleBroughtToFront();
                 }
                 
@@ -394,8 +394,6 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
         
         if (! (styleFlags & ComponentPeer::windowHasTitleBar))
             WaylandSymbols::getInstance()->decorFrameSetVisibility (window->handle.frame, false);
-            
-        WaylandSymbols::getInstance()->surfaceSetBufferScale (window->surface, peer->getPlatformScaleFactor());
     }
     
     if (! lastFocusedWindow)
@@ -603,8 +601,6 @@ void WaylandWindowSystem::toFront (WaylandWindow* window, bool commit)
     auto it = findInZOrder (window);
     if (it != zOrder.end())
         zOrder.erase (it);
-    
-    window->isAlwaysOnTop = window->peer->getComponent().isAlwaysOnTop();
     
     if (window->isAlwaysOnTop)
     {
