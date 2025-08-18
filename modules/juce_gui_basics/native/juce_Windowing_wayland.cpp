@@ -92,7 +92,8 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         
         WeakReference<Component> deletionChecker (&component);
         
-        WaylandWindowSystem::getInstance()->setBounds (windowH, correctedNewBounds);
+        const auto physicalBounds = correctedNewBounds.toFloat() * Desktop::getInstance().getGlobalScaleFactor();
+        WaylandWindowSystem::getInstance()->setBounds (windowH, physicalBounds.toNearestInt());
         
         if (deletionChecker != nullptr)
         {
@@ -102,7 +103,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     
     Point<int> getScreenPosition() const
     {
-        return WaylandWindowSystem::getInstance()->getBounds (windowH).getPosition();
+        return WaylandWindowSystem::getInstance()->getBounds (windowH).getPosition() * Desktop::getInstance().getGlobalScaleFactor();
     }
     
     Rectangle<int> getBounds() const override
@@ -305,7 +306,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
             currentScaleFactor = newScaleFactor;
             if (windowH) {
                 auto* wlSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow (windowH);
-                WaylandSymbols::getInstance()->surfaceSetBufferScale (wlSurface, roundToInt (currentScaleFactor));
+                WaylandSymbols::getInstance()->surfaceSetBufferScale (wlSurface, roundToInt (windowScale));
                 repaint (bounds);
             }
             scaleFactorListeners.call ([&] (ScaleFactorListener& l) { l.nativeScaleFactorChanged (currentScaleFactor); });
@@ -443,4 +444,3 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
 bool WaylandComponentPeer::isActiveApplication = false;
 
 } // namespace juce
-

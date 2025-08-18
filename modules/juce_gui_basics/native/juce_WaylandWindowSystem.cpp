@@ -270,7 +270,8 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
           auto* w = static_cast<WaylandWindow*> (data);
           w->displays.insert (output);
           // If our window entered a new display, update scale
-          if (! ComponentPeer::isValidPeer (w->peer)) return;
+          if (! ComponentPeer::isValidPeer (w->peer))
+            return;
           if (auto* p = dynamic_cast<WaylandComponentPeer*> (w->peer))
             p->updateScaleFactor();
         },
