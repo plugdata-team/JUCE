@@ -96,7 +96,9 @@ struct WaylandWindow {
     WaylandWindow* parentWindow = nullptr;
     WaylandComponentPeer* peer;
     std::unique_ptr<WaylandShmBuffer> currentBuffer = nullptr;
+    std::set<wl_output*> displays;
     Rectangle<int> bounds;
+    float scale = 1.0f;
     bool isVisible:1 = true;
     bool isFullscreen:1 = false;
     bool isMinimised:1 = false;
@@ -108,6 +110,7 @@ struct WaylandWindow {
 };
 
 struct WaylandDisplay {
+    wl_output* output;
     Rectangle<int> bounds;
     int physicalWidth = 0, physicalHeight = 0;
     int refreshRate = 0;
@@ -257,11 +260,26 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
     }
     
     window->surface = WaylandSymbols::getInstance()->compositorCreateSurface (getCompositor());
-    WaylandSymbols::getInstance()->surfaceSetBufferScale (window->surface, peer->getPlatformScaleFactor());
     window->ignoresKeyboard = (peer->getStyleFlags() & ComponentPeer::windowIgnoresKeyPresses);
     window->ignoresMouse = (peer->getStyleFlags() & ComponentPeer::windowIgnoresMouseClicks);
     window->isOpaque = ! (peer->getStyleFlags() & ComponentPeer::windowIsSemiTransparent);
     window->isAlwaysOnTop = peer->getComponent().isAlwaysOnTop();
+    
+    static const struct wl_surface_listener surfaceListener = {
+        .enter = [](void* data, struct wl_surface*, struct wl_output* output){
+          auto* w = static_cast<WaylandWindow*> (data);
+          w->displays.insert (output);
+          // If our window entered a new display, update scale
+          if (! ComponentPeer::isValidPeer (w->peer)) return;
+          if (auto* p = dynamic_cast<WaylandComponentPeer*> (w->peer))
+            p->updateScaleFactor();
+        },
+        .leave = [](void* data, struct wl_surface*, struct wl_output* output){
+          auto* w = static_cast<WaylandWindow*> (data);
+          w->displays.erase (output);
+        }
+    };
+    WaylandSymbols::getInstance()->surfaceAddListener (window->surface, &surfaceListener, window);
     
     updateRegions (window);
     
@@ -293,9 +311,9 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
         
         static const libdecor_frame_interface frame_interface =
         {
-            .configure = [] (libdecor_frame* frame, libdecor_configuration* configuration, void* user_data)
+            .configure = [] (libdecor_frame* frame, libdecor_configuration* configuration, void* data)
             {
-                auto* w = static_cast<WaylandWindow*> (user_data);
+                auto* w = static_cast<WaylandWindow*> (data);
                 if (! ComponentPeer::isValidPeer (w->peer))
                 {
                     auto* state = WaylandSymbols::getInstance()->decorStateNew (1, 1);
@@ -375,6 +393,8 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
         
         if (! (styleFlags & ComponentPeer::windowHasTitleBar))
             WaylandSymbols::getInstance()->decorFrameSetVisibility (window->handle.frame, false);
+            
+        WaylandSymbols::getInstance()->surfaceSetBufferScale (window->surface, peer->getPlatformScaleFactor());
     }
     
     if (! lastFocusedWindow)
@@ -392,7 +412,16 @@ WaylandWindow* WaylandWindowSystem::getWaylandWindowForPeer (ComponentPeer* peer
         return waylandPeer->getWindow();
     
     return nullptr;
-};
+}
+
+int WaylandWindowSystem::getScaleFactorForWindow (WaylandWindow* window)
+{
+    for (auto const& d : displays)
+        if(window->displays.find (d.output) != window->displays.end())
+          return d.scaleFactor;
+    
+    return 1;
+}
 
 void WaylandWindowSystem::requestFrame (WaylandWindow* window)
 {
@@ -1199,11 +1228,11 @@ void WaylandWindowSystem::setupDisplay (wl_output* output)
                 waylandDisplay->refreshRate = refreshRate;
             }
         },
-        .done = [] (void* data, wl_output* doneOutput)
+        .done = [] (void* data, wl_output* out)
         {
             auto* waylandDisplay = static_cast<WaylandDisplay*> (data);
             waylandDisplay->isDone = true;
-            WaylandSymbols::getInstance()->outputDestroy (doneOutput);
+            waylandDisplay->output = out;
         },
         .scale = [] (void* data, wl_output*, int32 factor)
         {
@@ -1575,7 +1604,7 @@ void WaylandWindowSystem::handleKeyRepeat()
         }
         else
         {
-            keyRepeater.stopTimer ();
+            keyRepeater.stopTimer();
         }
     }
 }
@@ -2063,4 +2092,3 @@ void processWaylandFd()
 }
 
 } // namespace juce
-

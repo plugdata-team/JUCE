@@ -82,6 +82,8 @@ public:
     bool isFocused (WaylandWindow* window);
     
     Array<Displays::Display> findDisplays (float masterScale);
+    int getScaleFactorForWindow (WaylandWindow* window);
+    
 private:
     WaylandWindowSystem();
     ~WaylandWindowSystem() override;
@@ -114,7 +116,7 @@ private:
     void handleKeyEvent (WaylandWindow* window, uint32_t waylandKey, bool pressed);
     void handleKeyRepeat();
     void updateMouseModifiers (uint32_t button, bool pressed);
-  
+    
     wl_display* display;
     wl_registry* registry;
     wl_compositor* compositor;
