@@ -26,12 +26,12 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         
         if (parentWindow)
         {
-            windowH = WaylandWindowSystem::getInstance()->createWindow (true, this, parentWindow);
+            windowH = WaylandWindowSystem::getInstance()->createWindow (true, this, isAlwaysOnTop, parentWindow);
         }
         else
         {
             bool isSubsurface = (windowStyleFlags & windowIsTemporary) && ! (windowStyleFlags & windowHasTitleBar);
-            windowH = WaylandWindowSystem::getInstance()->createWindow (isSubsurface, this);
+            windowH = WaylandWindowSystem::getInstance()->createWindow (isSubsurface, this, isAlwaysOnTop);
         }
         
         updateScaleFactor();
@@ -302,7 +302,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
             if (windowH) {
                 auto* wlSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow (windowH);
                 WaylandSymbols::getInstance()->surfaceSetBufferScale (wlSurface, roundToInt (windowScale));
-                repaint (bounds);
+                repaint (bounds.withZeroOrigin());
             }
             scaleFactorListeners.call ([&] (ScaleFactorListener& l) { l.nativeScaleFactorChanged (currentScaleFactor); });
         }

@@ -204,11 +204,13 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
         auto height = jmax (1, windowBounds.getHeight());
         
         auto* peer = component.getPeer(); // TODO; passing in the parent peer might not be good?
-        if (! embeddedWindow) embeddedWindow = WaylandWindowSystem::getInstance()->createWindow (true, peer, WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (peer));
+        if (! embeddedWindow) embeddedWindow = WaylandWindowSystem::getInstance()->createWindow (true, peer, true, WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (peer));
         
         WaylandWindowSystem::getInstance()->setBounds (embeddedWindow, windowBounds);
         waylandSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow (embeddedWindow);
         
+        WaylandWindowSystem::getInstance()->toFront (embeddedWindow, true);
+      
         if (waylandSurface == nullptr)
         {
             DBG ("OpenGL WaylandNativeContext: Wayland surface is null");
