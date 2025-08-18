@@ -70,6 +70,17 @@ public:
 
         return false;
     }
+    
+    std::set<int> getAllTouchIndicesForPeer (ComponentPeer* peer)
+    { 
+        std::set<int> touchesForPeer;
+        for (int i = 0; i < currentTouches.size(); i++)
+            if (currentTouches[i].owner == peer)
+                touchesForPeer.insert (i);
+        
+        return touchesForPeer;
+    }
+
 
     void deleteAllTouchesForPeer (ComponentPeer* peer)
     {

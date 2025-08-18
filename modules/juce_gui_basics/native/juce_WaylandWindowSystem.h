@@ -15,10 +15,22 @@ struct WaylandCursor
     WaylandShmBuffer* cursorImage;
 };
 
+template<typename TypeID>
+class MultiTouchMapper;
+
+enum class MouseEventFlags
+{
+    none,
+    down,
+    up,
+    upAndCancel
+};
+
 class WaylandWindowSystem : public DeletedAtShutdown
 {
 public:
     bool isWaylandAvailable();
+    bool isTouchAvailable();
     
     ModifierKeys getNativeRealtimeModifiers();
     Point<float> getCurrentMousePosition();
@@ -70,7 +82,8 @@ public:
     bool isFocused (WaylandWindow* window);
     
     Array<Displays::Display> findDisplays (float masterScale);
-  
+    int getScaleFactorForWindow (WaylandWindow* window);
+    
 private:
     WaylandWindowSystem();
     ~WaylandWindowSystem() override;
@@ -99,10 +112,11 @@ private:
     
     // Input event handling
     void handleMouseEvent (WaylandWindow* window);
+    void handleTouchEvent (WaylandWindow* window, Point<float> localPos, int touchIndex, MouseEventFlags eventType);
     void handleKeyEvent (WaylandWindow* window, uint32_t waylandKey, bool pressed);
     void handleKeyRepeat();
     void updateMouseModifiers (uint32_t button, bool pressed);
-  
+    
     wl_display* display;
     wl_registry* registry;
     wl_compositor* compositor;
@@ -135,6 +149,7 @@ private:
     // Global input objects
     wl_keyboard* globalKeyboard;
     wl_pointer* globalPointer;
+    wl_touch* globalTouch;
     
     TimedCallback keyRepeater = TimedCallback ([this](){ handleKeyRepeat(); });
     std::pair<int, juce_wchar> lastKey;
@@ -144,6 +159,12 @@ private:
     Point<float> currentMousePosition;
     uint32_t currentMouseSerial = 0;
     uint32_t currentMouseTime = 0;
+    
+    uint32_t currentTouchTime = 0;
+    std::unique_ptr<MultiTouchMapper<int32>> currentTouches;
+    bool hasTouch = false;
+    bool hasMouse = false;
+    bool hasKeyboard = false;
     
     wl_data_device_manager* dataDeviceManager;
     wl_data_device* dataDevice;

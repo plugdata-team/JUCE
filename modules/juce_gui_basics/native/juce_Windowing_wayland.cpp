@@ -30,11 +30,11 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         }
         else
         {
-            bool isSubsurface = (windowStyleFlags & windowIsTemporary) && !(windowStyleFlags & windowHasTitleBar);
+            bool isSubsurface = (windowStyleFlags & windowIsTemporary) && ! (windowStyleFlags & windowHasTitleBar);
             windowH = WaylandWindowSystem::getInstance()->createWindow (isSubsurface, this);
         }
         
-        updateScaleFactorFromNewBounds (comp.getBounds());
+        updateScaleFactor();
         
         setVisible (component.isVisible());
         setTitle (component.getName());
@@ -78,16 +78,17 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     
     void setBounds (const Rectangle<int>& newBounds, bool isNowFullScreen) override
     {
-        ignoreUnused(isNowFullScreen); // What to do with this?
+        ignoreUnused (isNowFullScreen); // What to do with this?
             
         const auto correctedNewBounds = newBounds.withSize (jmax (1, newBounds.getWidth()),
                                                             jmax (1, newBounds.getHeight()));
-        updateScaleFactorFromNewBounds (bounds);
+        updateScaleFactor();
         bounds = correctedNewBounds;
         
         WeakReference<Component> deletionChecker (&component);
         
-        WaylandWindowSystem::getInstance()->setBounds (windowH, correctedNewBounds);
+        const auto physicalBounds = correctedNewBounds.toFloat() * Desktop::getInstance().getGlobalScaleFactor();
+        WaylandWindowSystem::getInstance()->setBounds (windowH, physicalBounds.toNearestInt());
         
         if (deletionChecker != nullptr)
         {
@@ -95,9 +96,9 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         }
     }
     
-    Point<int> getScreenPosition () const
+    Point<int> getScreenPosition() const
     {
-        return WaylandWindowSystem::getInstance()->getBounds (windowH).getPosition();
+        return WaylandWindowSystem::getInstance()->getBounds (windowH).getPosition() * Desktop::getInstance().getGlobalScaleFactor();
     }
     
     Rectangle<int> getBounds() const override
@@ -245,7 +246,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     
     void setIcon (const Image& newIcon) override
     {
-        ignoreUnused(newIcon);
+        ignoreUnused (newIcon);
         jassertfalse;
         // Not supported, wayland sets the icon from a .desktop file instead
     }
@@ -280,7 +281,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         
         bounds = WaylandWindowSystem::getInstance()->getBounds (windowH);
         
-        updateScaleFactorFromNewBounds (bounds);
+        updateScaleFactor();
         
         updateVBlankTimer();
     }
@@ -289,6 +290,24 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     {
         WaylandWindowSystem::getInstance()->startHostManagedResize (windowH, zone);
     }
+        
+    void updateScaleFactor()
+    {
+        auto windowScale = (double)WaylandWindowSystem::getInstance()->getScaleFactorForWindow (windowH);
+        auto newScaleFactor = windowScale / Desktop::getInstance().getGlobalScaleFactor();
+        
+        if (! approximatelyEqual (newScaleFactor, currentScaleFactor))
+        {
+            currentScaleFactor = newScaleFactor;
+            if (windowH) {
+                auto* wlSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow (windowH);
+                WaylandSymbols::getInstance()->surfaceSetBufferScale (wlSurface, roundToInt (windowScale));
+                repaint (bounds);
+            }
+            scaleFactorListeners.call ([&] (ScaleFactorListener& l) { l.nativeScaleFactorChanged (currentScaleFactor); });
+        }
+    }
+    
     
     WaylandWindow* getWindow() { return windowH; }
 
@@ -380,29 +399,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     {
         return screenPosition - t.getScreenPosition().toFloat();
     }
-    
-    
-    void updateScaleFactorFromNewBounds (const Rectangle<int>& newBounds)
-    {
-        Point<int> translation = (parentWindow != 0 ? getScreenPosition() : Point<int>());
-        const auto& desktop = Desktop::getInstance();
-        
-        if (auto* display = desktop.getDisplays().getDisplayForRect (newBounds.translated (translation.x, translation.y), false))
-        {
-            auto newScaleFactor = display->scale / desktop.getGlobalScaleFactor();
-            
-            if (! approximatelyEqual (newScaleFactor, currentScaleFactor))
-            {
-                currentScaleFactor = newScaleFactor;
-                if (windowH) {
-                    auto* wlSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow (windowH);
-                    WaylandSymbols::getInstance()->surfaceSetBufferScale (wlSurface, roundToInt (currentScaleFactor));
-                }
-                scaleFactorListeners.call ([&] (ScaleFactorListener& l) { l.nativeScaleFactorChanged (currentScaleFactor); });
-            }
-        }
-    }
-    
+
     void timerCallback() override
     {
         vBlankListeners.call ([] (auto& l) { l.onVBlank (); });
@@ -442,4 +439,3 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
 bool WaylandComponentPeer::isActiveApplication = false;
 
 } // namespace juce
-
