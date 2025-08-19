@@ -98,6 +98,7 @@ struct WaylandWindow {
     std::unique_ptr<WaylandShmBuffer> currentBuffer = nullptr;
     std::set<wl_output*> displays;
     Rectangle<int> bounds;
+    uint16 bufferScale = 1;
     bool isVisible:1 = true;
     bool isFullscreen:1 = false;
     bool isMinimised:1 = false;
@@ -270,8 +271,9 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
           w->displays.insert (output);
           
           // If our window entered a new display, update scale
-          auto newScale = getInstance()->getScaleFactorForWindow (w);
-          WaylandSymbols::getInstance()->surfaceSetBufferScale (w->surface, newScale);
+          w->bufferScale = getInstance()->getScaleFactorForWindow (w);
+          WaylandSymbols::getInstance()->surfaceSetBufferScale (w->surface, w->bufferScale);
+          
           if (ComponentPeer::isValidPeer (w->peer))
             dynamic_cast<WaylandComponentPeer*> (w->peer)->updateScaleFactor();
         },
@@ -292,6 +294,9 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
         window->handle.subsurface = WaylandSymbols::getInstance()->subcompositorGetSubsurface (subcompositor, window->surface, window->parentWindow->surface);
         WaylandSymbols::getInstance()->subsurfaceSetPosition (window->handle.subsurface, 0, 0);
         WaylandSymbols::getInstance()->subsurfaceSetDesync (window->handle.subsurface);
+        
+        window->bufferScale = getInstance()->getScaleFactorForWindow (window);
+        WaylandSymbols::getInstance()->surfaceSetBufferScale (window->surface, window->bufferScale);
         
         WaylandSymbols::getInstance()->surfaceCommit (window->surface);
         WaylandSymbols::getInstance()->surfaceCommit (window->parentWindow->surface);
@@ -337,8 +342,8 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
                     w->peer->handleBroughtToFront();
                 }
                 
-                int width = std::max (1, w->peer->getComponent().getWidth());
-                int height = std::max (1, w->peer->getComponent().getHeight());
+                int width = std::max (1, (int)(w->peer->getComponent().getWidth()));
+                int height = std::max (1, (int)(w->peer->getComponent().getHeight()));
                 if (WaylandSymbols::getInstance()->decorConfigurationGetContentSize (configuration, frame, &width, &height))
                 {
                     if (width > 0 && height > 0)
@@ -419,7 +424,7 @@ int WaylandWindowSystem::getScaleFactorForWindow (WaylandWindow* window)
         if(window->displays.find (d.output) != window->displays.end())
           return d.scaleFactor;
     
-    return 1;
+    return displays.size() ? displays[0].scaleFactor : 1;
 }
 
 void WaylandWindowSystem::requestFrame (WaylandWindow* window)
@@ -476,20 +481,21 @@ void WaylandWindowSystem::updateConstraints (WaylandWindow* window) const
     if (window->parentWindow)
         return;
     
+    auto globalScale = Desktop::getInstance().getGlobalScaleFactor();
     if ((window->peer->getStyleFlags() & ComponentPeer::windowIsResizable) == 0)
     {
         // Non-resizable window: set min/max to current size
-        const auto bounds = window->peer->getBounds();
+        const auto bounds = window->peer->getBounds() * globalScale;
         WaylandSymbols::getInstance()->decorFrameSetMinContentSize (window->handle.frame, bounds.getWidth(), bounds.getHeight());
         WaylandSymbols::getInstance()->decorFrameSetMaxContentSize (window->handle.frame, bounds.getWidth(), bounds.getHeight());
     }
     else if (auto* c = window->peer->getConstrainer())
     {
         // Resizable window with constraints
-        const int minWidth  = jmax (1, (int)c->getMinimumWidth());
-        const int maxWidth  = jmax (1, (int)c->getMaximumWidth());
-        const int minHeight = jmax (1, (int)c->getMinimumHeight());
-        const int maxHeight = jmax (1, (int)c->getMaximumHeight());
+        const int minWidth  = jmax (1, (int)c->getMinimumWidth()) * globalScale;
+        const int maxWidth  = jmax (1, (int)c->getMaximumWidth()) * globalScale;
+        const int minHeight = jmax (1, (int)c->getMinimumHeight()) * globalScale;
+        const int maxHeight = jmax (1, (int)c->getMaximumHeight()) * globalScale;
         
         WaylandSymbols::getInstance()->decorFrameSetMinContentSize (window->handle.frame, minWidth, minHeight);
         WaylandSymbols::getInstance()->decorFrameSetMaxContentSize (window->handle.frame, maxWidth, maxHeight);
@@ -547,7 +553,6 @@ void WaylandWindowSystem::setBounds (WaylandWindow* window, Rectangle<int> b)
     
     if (window->parentWindow)
     {
-        auto parentBounds = getBounds (window->parentWindow);
         window->bounds = b;
         WaylandSymbols::getInstance()->subsurfaceSetPosition (window->handle.subsurface, window->bounds.getX(), window->bounds.getY());
         WaylandSymbols::getInstance()->surfaceCommit (window->surface);
@@ -678,16 +683,16 @@ void WaylandWindowSystem::enforceOrder()
         // First, split subsurfaces into a list of subsurfaces above and below the parent
         std::vector<WaylandWindow*> subsurfacesAbove;
         std::vector<WaylandWindow*> subsurfacesBelow;
-        bool above = false;
+        bool aboveParent = false;
         for (auto* child : children)
         {
             if (child == parent)
             {
-                above = true;
+                aboveParent = true;
             }
             else if (child->handle.subsurface && child->parentWindow == parent)
             {
-                if (above)
+                if (aboveParent)
                     subsurfacesAbove.push_back (child);
                 else
                     subsurfacesBelow.push_back (child);
@@ -806,10 +811,10 @@ bool WaylandWindowSystem::isFocused (WaylandWindow* window)
 
 void WaylandWindowSystem::blitToWindow (WaylandWindow* window, const Image& image, Rectangle<int> bounds, Rectangle<int> totalArea)
 {
-    auto scaleFactor = window->peer->getPlatformScaleFactor();
-    int windowWidth = window->bounds.getWidth() * scaleFactor;
-    int windowHeight = window->bounds.getHeight() * scaleFactor;
-    
+    auto bufferScale = window->bufferScale;
+    int windowWidth = window->bounds.getWidth() * bufferScale;
+    int windowHeight = window->bounds.getHeight() * bufferScale;
+        
     if (windowWidth <= 0 || windowHeight <= 0 || ! window->isVisible)
         return;
     
@@ -1090,6 +1095,7 @@ void WaylandWindowSystem::setupGlobalInput()
         .axis_discrete = [] (void *, wl_pointer*, uint32, int32) {}
     };
     
+    // Touch setup
     static const wl_touch_listener touchListener =
     {
         .down = [] (void* data, wl_touch*, uint32 serial, uint32 time, wl_surface* surface, int32 id, wl_fixed_t x, wl_fixed_t y)

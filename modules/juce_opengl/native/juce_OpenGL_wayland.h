@@ -204,7 +204,8 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
         auto height = jmax (1, windowBounds.getHeight());
         
         auto* peer = component.getPeer(); // TODO; passing in the parent peer might not be good?
-        if (! embeddedWindow) embeddedWindow = WaylandWindowSystem::getInstance()->createWindow (true, peer, true, WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (peer));
+        
+        embeddedWindow = WaylandWindowSystem::getInstance()->createWindow (true, peer, true, WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (peer));
         
         WaylandWindowSystem::getInstance()->setBounds (embeddedWindow, windowBounds);
         waylandSurface = WaylandWindowSystem::getInstance()->getSurfaceForWindow (embeddedWindow);
@@ -217,11 +218,10 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
             return;
         }
         
-        
         auto* emptyRegion = WaylandSymbols::getInstance()->compositorCreateRegion (WaylandWindowSystem::getInstance()->getCompositor());
         WaylandSymbols::getInstance()->surfaceSetInputRegion (waylandSurface, emptyRegion);
         WaylandSymbols::getInstance()->regionDestroy (emptyRegion);
-        
+
         // Now create the EGL window - surface should be properly configured
         waylandEglWindow = WaylandEGL::wlWindowCreate (waylandSurface, width, height);
         if (waylandEglWindow == nullptr)
@@ -245,9 +245,8 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
             eglDisplay = EGL_NO_DISPLAY;
         }
         
-        if (embeddedWindow) {
+        if (embeddedWindow)
             WaylandWindowSystem::getInstance()->destroyWindow (embeddedWindow);
-        }
     }
     
     InitResult initialiseOnRenderThread (OpenGLContext& c)
@@ -352,7 +351,7 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
             WaylandEGL::eglMakeCurrent (display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         }
     }
-    
+  
     void swapBuffers()
     {
         if (eglSurface == PtrEGLSurface{} || waylandSurface == nullptr)
@@ -363,23 +362,22 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
     void updateWindowPosition (Rectangle<int> newBounds)
     {
         bounds = newBounds;
-        auto physicalBounds = Desktop::getInstance().getDisplays().logicalToPhysical (bounds);
-        int scale = 1;
-        if (auto* peer = component.getPeer())
-            scale = peer->getPlatformScaleFactor();
+      
+        auto* parent = WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (component.getPeer());
+        int scale = jmax (1, WaylandWindowSystem::getInstance()->getScaleFactorForWindow (parent));
+        int physicalWidth = bounds.getWidth() * scale;
+        int physicalHeight = bounds.getHeight() * scale;
         
         if (waylandEglWindow != nullptr)
         {
-            
             WaylandEGL::wlWindowResize (waylandEglWindow,
-                                        jmax (scale, physicalBounds.getWidth()),
-                                        jmax (scale, physicalBounds.getHeight()),
+                                        jmax (scale, physicalWidth),
+                                        jmax (scale, physicalHeight),
                                         0, 0);
         }
-        
         WaylandWindowSystem::getInstance()->setBounds (embeddedWindow, bounds);
-        
-        if (physicalBounds.isEmpty())
+
+        if (bounds.isEmpty())
         {
             // special case for plugdata, hide on 0 bounds
             WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
