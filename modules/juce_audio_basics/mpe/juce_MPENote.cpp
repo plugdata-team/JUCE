@@ -41,7 +41,6 @@ namespace
     {
         jassert (midiChannel > 0 && midiChannel <= 16);
         jassert (midiNoteNumber >= 0 && midiNoteNumber < 128);
-
         return uint16 ((midiChannel << 7) + midiNoteNumber);
     }
 }

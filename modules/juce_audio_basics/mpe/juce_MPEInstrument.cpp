@@ -96,7 +96,7 @@ void MPEInstrument::resetLastReceivedValues()
 
 void MPEInstrument::setZoneLayout (MPEZoneLayout newLayout)
 {
-    releaseAllNotes();
+    // releaseAllNotes();
 
     const ScopedLock sl (lock);
     legacyMode.isEnabled = false;
@@ -114,7 +114,7 @@ void MPEInstrument::enableLegacyMode (int pitchbendRange, Range<int> channelRang
     if (legacyMode.isEnabled)
         return;
 
-    releaseAllNotes();
+    // releaseAllNotes();
 
     const ScopedLock sl (lock);
 
