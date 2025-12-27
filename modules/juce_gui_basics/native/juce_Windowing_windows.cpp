@@ -2610,10 +2610,8 @@ private:
             {
                 const ScopedValueSetter<bool> setter (reentrant, true, false);
 
-                if (dontRepaint)
-                    component.handleCommandMessage (0); // (this triggers a repaint in the openGL context)
-                else
-                    performPaint (dc, rgn, regionType, paintStruct);
+                component.handleCommandMessage (0); // (this triggers a repaint in the openGL context)
+                performPaint (dc, rgn, regionType, paintStruct);
             }
 
             DeleteObject (rgn);

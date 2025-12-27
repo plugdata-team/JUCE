@@ -2026,9 +2026,14 @@ void Component::postCommandMessage (int commandID)
     });
 }
 
-void Component::handleCommandMessage (int)
+void Component::handleCommandMessage (int commandID)
 {
-    // used by subclasses
+    // Pass GL repaint message on until a child component overrides handleCommandMessage
+    static constexpr int glRepaintMessage = 0;
+    if(commandID == glRepaintMessage && getNumChildComponents())
+    {
+        getChildComponent(0)->handleCommandMessage (glRepaintMessage);
+    }
 }
 
 //==============================================================================
