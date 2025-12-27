@@ -1960,9 +1960,9 @@ private:
     //==============================================================================
     static String getDeviceTypename (WASAPIDeviceMode mode)
     {
-        if (mode == WASAPIDeviceMode::shared)            return "Windows Audio";
-        if (mode == WASAPIDeviceMode::sharedLowLatency)  return "Windows Audio (Low Latency Mode)";
-        if (mode == WASAPIDeviceMode::exclusive)         return "Windows Audio (Exclusive Mode)";
+        if (mode == WASAPIDeviceMode::shared)            return "WASAPI";
+        if (mode == WASAPIDeviceMode::sharedLowLatency)  return "WASAPI (Low Latency Mode)";
+        if (mode == WASAPIDeviceMode::exclusive)         return "WASAPI (Exclusive Mode)";
 
         jassertfalse;
         return {};
