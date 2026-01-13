@@ -759,10 +759,9 @@ private:
     void stop()
     {
         stopTimer();
-
-        auto& comp = *getComponent();
-
+        
        #if JUCE_MAC && (! defined (MAC_OS_VERSION_15_0) || MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_VERSION_15_0)
+        auto& comp = *getComponent();
         // According to a warning triggered on macOS 15 and above this doesn't do anything!
         [[(NSView*) comp.getWindowHandle() window] disableScreenUpdatesUntilFlush];
        #endif

@@ -85,8 +85,8 @@ private:
 
         void handleCommandMessage (int commandId) override
         {
-            //if (commandId == 0)
-            //    native.triggerRepaint();
+            if (commandId == 0)
+                native.component.handleCommandMessage(0);
         }
 
         OpenGLContext::NativeContext& native;
