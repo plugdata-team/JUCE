@@ -253,9 +253,9 @@ private:
         DummyComponent (NativeContext& c) : context (c) {}
 
         // The windowing code will call this when a paint callback happens
-        void handleCommandMessage (int) override {
-            if (commandId == 0)
-                context.component.handleCommandMessage(0);
+        void handleCommandMessage (int commandId) override {
+            if (commandId == 0 && context.safeComponent)
+                context.safeComponent->handleCommandMessage(0);
         }
 
         NativeContext& context;
