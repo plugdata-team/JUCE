@@ -664,6 +664,11 @@ public:
     */
     static URL createWithoutParsing (const String& url);
 
+#if JUCE_IOS
+    String getBookmarkData() const;
+    void setBookmarkData(String const& data);
+#endif
+
     //==============================================================================
    #ifndef DOXYGEN
     using OpenStreamProgressCallback = bool (void* context, int bytesSent, int totalBytes);
