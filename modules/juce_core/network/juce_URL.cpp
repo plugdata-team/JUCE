@@ -697,12 +697,14 @@ String URL::getBookmarkData() const
 
 void URL::setBookmarkData(String const& base64)
 {
-    MemoryBlock mb;
-    MemoryOutputStream decoded(mb, false);
-    if (Base64::convertFromBase64(decoded, base64))
-    {
-        NSData* data = [[NSData dataWithBytes:mb.getData() length:mb.getSize()] retain];
-        bookmark = new URL::Bookmark((void*) data);
+    if(base64.isNotEmpty()) {
+        MemoryBlock mb;
+        MemoryOutputStream decoded(mb, false);
+        if (Base64::convertFromBase64(decoded, base64))
+        {
+            NSData* data = [[NSData dataWithBytes:mb.getData() length:mb.getSize()] retain];
+            bookmark = new URL::Bookmark((void*) data);
+        }
     }
 }
 
