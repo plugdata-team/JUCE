@@ -2061,7 +2061,7 @@ void UIViewComponentPeer::handleTouches (UIEvent* event, MouseEventFlags mouseEv
             if (! ([touch phase] == UITouchPhaseEnded || [touch phase] == UITouchPhaseCancelled))
                 continue;
 
-            modsToSend = modsToSend.withoutMouseButtons();
+            ModifierKeys::currentModifiers = modsToSend = modsToSend.withoutMouseButtons();
             currentTouches.clearTouch (touchIndex);
         }
 
@@ -2069,6 +2069,8 @@ void UIViewComponentPeer::handleTouches (UIEvent* event, MouseEventFlags mouseEv
         {
             currentTouches.clearTouch (touchIndex);
             modsToSend = ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
+            if (auto* mouse = Desktop::getInstance().getMouseSource(touchIndex))
+               MouseInputSource (*mouse).cancelTouchEvent();
         }
 
         // NB: some devices return 0 or 1.0 if pressure is unknown, so we'll clip our value to a believable range:
@@ -2078,8 +2080,6 @@ void UIViewComponentPeer::handleTouches (UIEvent* event, MouseEventFlags mouseEv
         handleMouseEvent (MouseInputSource::InputSourceType::touch,
                           pos, modsToSend, pressure, MouseInputSource::defaultOrientation, time, { }, touchIndex);
 
-        if (! currentTouches.areAnyTouchesActive())
-            ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
         
         if (! isValidPeer (this)) // (in case this component was deleted by the event)
             return;
