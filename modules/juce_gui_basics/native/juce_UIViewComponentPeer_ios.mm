@@ -2063,9 +2063,6 @@ void UIViewComponentPeer::handleTouches (UIEvent* event, MouseEventFlags mouseEv
 
             modsToSend = modsToSend.withoutMouseButtons();
             currentTouches.clearTouch (touchIndex);
-
-            if (! currentTouches.areAnyTouchesActive())
-                mouseEventFlags = MouseEventFlags::upAndCancel;
         }
 
         if (mouseEventFlags == MouseEventFlags::upAndCancel)
@@ -2081,6 +2078,9 @@ void UIViewComponentPeer::handleTouches (UIEvent* event, MouseEventFlags mouseEv
         handleMouseEvent (MouseInputSource::InputSourceType::touch,
                           pos, modsToSend, pressure, MouseInputSource::defaultOrientation, time, { }, touchIndex);
 
+        if (! currentTouches.areAnyTouchesActive())
+            ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
+        
         if (! isValidPeer (this)) // (in case this component was deleted by the event)
             return;
 
