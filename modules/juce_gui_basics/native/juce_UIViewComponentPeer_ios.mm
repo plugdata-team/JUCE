@@ -2069,8 +2069,10 @@ void UIViewComponentPeer::handleTouches (UIEvent* event, MouseEventFlags mouseEv
         {
             currentTouches.clearTouch (touchIndex);
             modsToSend = ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons();
-            if (auto* mouse = Desktop::getInstance().getMouseSource(touchIndex))
-               MouseInputSource (*mouse).cancelTouchEvent();
+            if(!currentTouches.areAnyTouchesActive()) {
+                if (auto* mouse = Desktop::getInstance().getMouseSource(touchIndex))
+                    MouseInputSource (*mouse).cancelTouchEvent();
+            }
         }
 
         // NB: some devices return 0 or 1.0 if pressure is unknown, so we'll clip our value to a believable range:
