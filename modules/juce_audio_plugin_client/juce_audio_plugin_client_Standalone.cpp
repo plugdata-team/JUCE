@@ -104,10 +104,10 @@ public:
     std::unique_ptr<StandalonePluginHolder> createPluginHolder()
     {
         constexpr auto autoOpenMidiDevices =
-       #if (JUCE_ANDROID || JUCE_IOS) && ! JUCE_DONT_AUTO_OPEN_MIDI_DEVICES_ON_MOBILE
-                true;
-       #else
+       #if (JUCE_ANDROID || JUCE_IOS) && JUCE_DONT_AUTO_OPEN_MIDI_DEVICES_ON_MOBILE
                 false;
+       #else
+                true;
        #endif
 
 
