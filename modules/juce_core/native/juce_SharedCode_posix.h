@@ -20,7 +20,11 @@
   ==============================================================================
 */
 
+#if JUCE_LINUX
+#include <pty.h>
+#else // macOS, iOS, BSD
 #include <util.h>
+#endif
 
 namespace juce
 {
