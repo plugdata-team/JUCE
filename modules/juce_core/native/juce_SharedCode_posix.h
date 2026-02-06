@@ -20,6 +20,8 @@
   ==============================================================================
 */
 
+#include <util.h>
+
 namespace juce
 {
 
@@ -1108,6 +1110,47 @@ public:
         jassert (File::getCurrentWorkingDirectory().getChildFile (exe).existsAsFile()
                   || ! exe.containsChar (File::getSeparatorChar()));
 
+        usingTty = (streamFlags & wantTtyOut) != 0;
+        if (usingTty)
+        {
+            // Use pseudo-TTY for color support
+            int masterFd = -1;
+            
+            auto result = forkpty(&masterFd, nullptr, nullptr, nullptr);
+            
+            if (result < 0)
+            {
+                // Fork failed
+                if (masterFd >= 0)
+                    close(masterFd);
+            }
+            else if (result == 0)
+            {
+                if ((streamFlags & wantStdOut) == 0)
+                    dup2 (open ("/dev/null", O_WRONLY), STDOUT_FILENO);
+                
+                if ((streamFlags & wantStdErr) == 0)
+                    dup2 (open ("/dev/null", O_WRONLY), STDERR_FILENO);
+                
+                Array<char*> argv;
+                for (auto& arg : arguments)
+                    if (arg.isNotEmpty())
+                        argv.add (const_cast<char*> (arg.toRawUTF8()));
+                argv.add (nullptr);
+                
+                execvp (exe.toRawUTF8(), argv.getRawDataPointer());
+                _exit (-1);
+            }
+            else
+            {
+                // we're the parent process..
+                childPID = result;
+                pipeHandle = masterFd;
+            }
+            
+            return;
+        }
+        
         int pipeHandles[2] = {};
 
         if (pipe (pipeHandles) == 0)
@@ -1133,15 +1176,13 @@ public:
                     dup2 (pipeHandles[1], STDERR_FILENO);
                 else
                     dup2 (open ("/dev/null", O_WRONLY), STDERR_FILENO);
-
+                
                 close (pipeHandles[1]);
 
                 Array<char*> argv;
-
                 for (auto& arg : arguments)
                     if (arg.isNotEmpty())
                         argv.add (const_cast<char*> (arg.toRawUTF8()));
-
                 argv.add (nullptr);
 
                 execvp (exe.toRawUTF8(), argv.getRawDataPointer());
@@ -1152,7 +1193,7 @@ public:
                 // we're the parent process..
                 childPID = result;
                 pipeHandle = pipeHandles[0];
-                close (pipeHandles[1]); // close the write handle
+                close (pipeHandles[1]);
             }
         }
     }
@@ -1189,31 +1230,47 @@ public:
     int read (void* dest, int numBytes) noexcept
     {
         jassert (dest != nullptr && numBytes > 0);
-
+        
+        if (usingTty)
+        {
+            // Use unbuffered read for PTY
+            for (;;)
+            {
+                auto numBytesRead = (int) ::read (pipeHandle, dest, (size_t) numBytes);
+                
+                if (numBytesRead >= 0)
+                    return numBytesRead;
+                
+                if (errno == EINTR)
+                    continue;
+                
+                return 0;
+            }
+        }
+        
+        // Original buffered implementation for regular pipes
         #ifdef fdopen
          #error // some crazy 3rd party headers (e.g. zlib) define this function as NULL!
         #endif
-
         if (readHandle == nullptr && childPID != 0)
             readHandle = fdopen (pipeHandle, "r");
-
+        
         if (readHandle != nullptr)
         {
             for (;;)
             {
                 auto numBytesRead = (int) fread (dest, 1, (size_t) numBytes, readHandle);
-
+                
                 if (numBytesRead > 0 || feof (readHandle))
                     return numBytesRead;
-
-                // signal occurred during fread() so try again
+                
                 if (ferror (readHandle) && errno == EINTR)
                     continue;
-
+                
                 break;
             }
         }
-
+        
         return 0;
     }
 
@@ -1246,6 +1303,7 @@ public:
     int pipeHandle = 0;
     int exitCode = -1;
     FILE* readHandle = {};
+    bool usingTty;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ActiveProcess)
 };
