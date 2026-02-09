@@ -87,6 +87,10 @@ public:
         word-wrap mode, etc.
     */
     void clear();
+    
+    /** Erase a part of the string, clearing all text and attributes.
+    */
+    void eraseEnd(int from);
 
     //==============================================================================
     /** Draws this string within the given area.
