@@ -2147,32 +2147,20 @@ bool TextEditor::keyPressed (const KeyPress& key)
                      && key != KeyPress ('a', ModifierKeys::commandModifier, 0))
         return false;
 
-    if(key.getModifiers().isShiftDown())
+    
+    
+    if(key.getModifiers().isShiftDown() && !(key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown() || key.getModifiers().isAltDown()))
     {
         if (key.isKeyCode (KeyPress::leftKey))  {
-            if(getHighlightedRegion().getStart() == getCaretPosition())
-            {
-                setHighlightedRegion(getHighlightedRegion().withStart(getCaretPosition() - 1));
-            }
-            else if(getHighlightedRegion().getEnd() == getCaretPosition()) {
-                setHighlightedRegion(getHighlightedRegion().withEnd(getCaretPosition() - 1));
-            }
-            
+            moveCaretLeft(false, true); // Move caret left and select
             return true;
         }
         else if (key.isKeyCode (KeyPress::rightKey)) {
-            if(getHighlightedRegion().getStart() == getCaretPosition())
-            {
-                setHighlightedRegion(getHighlightedRegion().withStart(getCaretPosition() + 1));
-            }
-            else if(getHighlightedRegion().getEnd() == getCaretPosition())
-            {
-                setHighlightedRegion(getHighlightedRegion().withEnd(getCaretPosition() + 1));
-            }
+            moveCaretRight(false, true); // Move caret right and select
             return true;
         }
     }
-    else if(!getHighlightedRegion().isEmpty()) {
+    if(!getHighlightedRegion().isEmpty()) {
         if (key.isKeyCode (KeyPress::leftKey))  {
             setCaretPosition(getHighlightedRegion().getStart());
             return true;
