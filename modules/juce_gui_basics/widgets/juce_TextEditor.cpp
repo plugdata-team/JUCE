@@ -924,8 +924,7 @@ namespace TextEditorDefs
 
     static int getCharacterCategory (juce_wchar character) noexcept
     {
-        return CharacterFunctions::isLetterOrDigit (character)
-                    ? 2 : (CharacterFunctions::isWhitespace (character) ? 0 : 1);
+        return CharacterFunctions::isWhitespace (character) ? 0 : 1;
     }
 }
 
@@ -2647,18 +2646,18 @@ int TextEditor::findWordBreakAfter (const int position) const
     auto totalLength = t.length();
     int i = 0;
 
-    while (i < totalLength && CharacterFunctions::isWhitespace (t[i]))
+    while (i <= totalLength && CharacterFunctions::isWhitespace (t[i]))
         ++i;
 
     auto type = TextEditorDefs::getCharacterCategory (t[i]);
 
-    while (i < totalLength && type == TextEditorDefs::getCharacterCategory (t[i]))
+    while (i <= totalLength && type == TextEditorDefs::getCharacterCategory (t[i]))
         ++i;
 
-    while (i < totalLength && CharacterFunctions::isWhitespace (t[i]))
+    while (i <= totalLength && CharacterFunctions::isWhitespace (t[i]))
         ++i;
 
-    return position + i;
+    return position + i - 1;
 }
 
 int TextEditor::findWordBreakBefore (const int position) const
