@@ -2159,7 +2159,7 @@ bool TextEditor::keyPressed (const KeyPress& key)
             return true;
         }
     }
-    if(!getHighlightedRegion().isEmpty()) {
+    if(!key.getModifiers().isShiftDown() && !getHighlightedRegion().isEmpty()) {
         if (key.isKeyCode (KeyPress::leftKey))  {
             setCaretPosition(getHighlightedRegion().getStart());
             return true;
