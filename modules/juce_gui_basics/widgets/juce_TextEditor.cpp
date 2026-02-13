@@ -1914,7 +1914,7 @@ void TextEditor::mouseDoubleClick (const MouseEvent& e)
             auto c = t[tokenEnd];
 
             // (note the slight bodge here - it's because iswalnum only checks for alphabetic chars in the current locale)
-            if (CharacterFunctions::isLetterOrDigit (c) || c > 128)
+            if (!CharacterFunctions::isWhitespace (c))
                 ++tokenEnd;
             else
                 break;
@@ -1927,7 +1927,7 @@ void TextEditor::mouseDoubleClick (const MouseEvent& e)
             auto c = t[tokenStart - 1];
 
             // (note the slight bodge here - it's because iswalnum only checks for alphabetic chars in the current locale)
-            if (CharacterFunctions::isLetterOrDigit (c) || c > 128)
+            if (!CharacterFunctions::isWhitespace (c))
                 --tokenStart;
             else
                 break;
