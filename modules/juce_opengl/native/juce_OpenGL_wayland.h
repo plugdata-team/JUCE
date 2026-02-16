@@ -69,6 +69,69 @@ struct WaylandEGL
     static inline bool isInitialised = false;
 };
 
+class WaylandEGLDisplayManager
+{
+public:
+    static WaylandEGLDisplayManager& getInstance()
+    {
+        static WaylandEGLDisplayManager instance;
+        return instance;
+    }
+    
+    EGLDisplay getDisplay()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        
+        if (eglDisplay == EGL_NO_DISPLAY)
+        {
+            auto* waylandDisplay = WaylandWindowSystem::getInstance()->getDisplay();
+            eglDisplay = WaylandEGL::eglGetDisplay((EGLNativeDisplayType)waylandDisplay);
+            
+            if (eglDisplay != EGL_NO_DISPLAY)
+            {
+                EGLint major, minor;
+                if (!WaylandEGL::eglInitialize(eglDisplay, &major, &minor))
+                {
+                    DBG("OpenGL WaylandNativeContext: Failed to initialize EGL.");
+                    eglDisplay = EGL_NO_DISPLAY;
+                }
+            }
+        }
+        
+        if (eglDisplay != EGL_NO_DISPLAY)
+            refCount++;
+            
+        return eglDisplay;
+    }
+    
+    void releaseDisplay()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        
+        if (--refCount == 0 && eglDisplay != EGL_NO_DISPLAY)
+        {
+            WaylandEGL::eglTerminate(eglDisplay);
+            eglDisplay = EGL_NO_DISPLAY;
+        }
+    }
+    
+private:
+    WaylandEGLDisplayManager() = default;
+    ~WaylandEGLDisplayManager()
+    {
+        if (eglDisplay != EGL_NO_DISPLAY)
+        {
+            WaylandEGL::eglTerminate(eglDisplay);
+        }
+    }
+    
+    std::mutex mutex;
+    EGLDisplay eglDisplay = EGL_NO_DISPLAY;
+    int refCount = 0;
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WaylandEGLDisplayManager)
+};
+
 //==============================================================================
 class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
 {
@@ -165,21 +228,10 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
         if (! WaylandEGL::initialise())
             return;
         
-        // Get Wayland display from the window system
-        auto* waylandDisplay = WaylandWindowSystem::getInstance()->getDisplay();
-        
-        // Initialize EGL display
-        eglDisplay = WaylandEGL::eglGetDisplay ((EGLNativeDisplayType) waylandDisplay);
+        eglDisplay = WaylandEGLDisplayManager::getInstance().getDisplay();
         if (eglDisplay == EGL_NO_DISPLAY)
         {
             DBG ("OpenGL WaylandNativeContext: Failed to get EGL display");
-            return;
-        }
-        
-        EGLint major, minor;
-        if (! WaylandEGL::eglInitialize (eglDisplay, &major, &minor))
-        {
-            DBG ("OpenGL WaylandNativeContext: Failed to initialize EGL.");
             return;
         }
         
@@ -241,7 +293,7 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
         
         if (eglDisplay != EGL_NO_DISPLAY)
         {
-            WaylandEGL::eglTerminate (eglDisplay);
+            WaylandEGLDisplayManager::getInstance().releaseDisplay();
             eglDisplay = EGL_NO_DISPLAY;
         }
         
@@ -381,6 +433,7 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
         {
             WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
             WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
+            WaylandSymbols::getInstance()->surfaceCommit(waylandSurface);
         }
     }
     
