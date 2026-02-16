@@ -380,6 +380,7 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
         if (bounds.isEmpty())
         {
             WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
+            WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
         }
     }
     
