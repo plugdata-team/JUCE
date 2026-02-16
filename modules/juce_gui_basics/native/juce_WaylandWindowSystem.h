@@ -190,7 +190,7 @@ private:
     bool initialised = false;
   
 public:
-    JUCE_DECLARE_SINGLETON (WaylandWindowSystem, false)
+    JUCE_DECLARE_SINGLETON_INLINE (WaylandWindowSystem, false)
 };
 
 } // namespace juce

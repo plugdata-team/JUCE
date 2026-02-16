@@ -572,6 +572,10 @@ function(juce_add_module module_path)
     target_compile_definitions(${module_name} INTERFACE JUCE_MODULE_AVAILABLE_${module_name}=1)
 
     if((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(WAYLAND REQUIRED wayland-client wayland-cursor xkbcommon libdecor-0 egl)
+        include_directories(${WAYLAND_INCLUDE_DIRS})
+
         target_compile_definitions(${module_name} INTERFACE LINUX=1)
     endif()
 

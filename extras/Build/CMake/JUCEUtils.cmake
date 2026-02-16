@@ -261,7 +261,6 @@ endfunction()
 function(_juce_link_optional_libraries target)
     if((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
         get_target_property(needs_curl ${target} JUCE_NEEDS_CURL)
-
         if(needs_curl)
             target_link_libraries(${target} PRIVATE juce::pkgconfig_JUCE_CURL_LINUX_DEPS)
         endif()
@@ -1625,6 +1624,7 @@ function(_juce_configure_plugin_targets target)
     endif()
 
     get_target_property(wants_copy "${target}" JUCE_COPY_PLUGIN_AFTER_BUILD)
+
 
     if(wants_copy)
         juce_enable_copy_plugin_step("${target}")

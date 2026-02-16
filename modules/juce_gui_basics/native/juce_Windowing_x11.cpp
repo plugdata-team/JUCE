@@ -778,15 +778,17 @@ static bool screenSaverAllowed = true;
 
 void Desktop::setScreenSaverEnabled (bool isEnabled)
 {
-    if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
-    {
-        return; // TODO: Not supported?
-    }
-    
     if (screenSaverAllowed != isEnabled)
     {
-        screenSaverAllowed = isEnabled;
-        XWindowSystem::getInstance()->setScreenSaverEnabled (screenSaverAllowed);
+        if (WaylandWindowSystem::getInstance()->isWaylandAvailable())
+        {
+            return; // TODO: Not supported?
+        }
+        else
+        {
+            screenSaverAllowed = isEnabled;
+            XWindowSystem::getInstance()->setScreenSaverEnabled (screenSaverAllowed);
+        }
     }
 }
 

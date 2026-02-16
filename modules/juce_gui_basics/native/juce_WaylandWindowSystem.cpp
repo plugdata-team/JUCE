@@ -2065,9 +2065,6 @@ bool WaylandWindowSystem::isKeyCurrentlyDown (int keyCode)
     return keysCurrentlyDown.find (keyCode) != keysCurrentlyDown.cend();
 }
 
-JUCE_IMPLEMENT_SINGLETON (WaylandWindowSystem)
-
-
 namespace WaylandMessageLoop
 {
 void prepareWaylandFd()
