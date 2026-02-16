@@ -776,7 +776,7 @@ void WaylandWindowSystem::setFullscreen (WaylandWindow* window, bool shouldBeFul
         else
             WaylandSymbols::getInstance()->decorFrameUnsetMaximized (window->handle.frame);
     }
-    window->isFullscreen = true;
+    window->isFullscreen = shouldBeFullscreen;
 }
 
 void WaylandWindowSystem::setMinimised (WaylandWindow* window, bool shouldBeMinimised)
