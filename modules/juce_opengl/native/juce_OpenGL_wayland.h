@@ -376,6 +376,11 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
                                         0, 0);
         }
         WaylandWindowSystem::getInstance()->setBounds (embeddedWindow, bounds);
+        
+        if (bounds.isEmpty())
+        {
+            WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
+        }
     }
     
     bool setSwapInterval (int numFramesPerSwap)
