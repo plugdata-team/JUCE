@@ -435,6 +435,9 @@ public:
     }
 
 
+    void addListener (NativeContextListener&) {}
+    void removeListener (NativeContextListener&) {}
+
 private:
     bool tryChooseVisual (const OpenGLPixelFormat& format, const std::vector<GLint>& optionalAttribs)
     {
