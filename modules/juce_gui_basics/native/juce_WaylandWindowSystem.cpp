@@ -1015,11 +1015,7 @@ void WaylandWindowSystem::setupGlobalInput()
                 // Clear subsurface activation state, so it can be activated again
                 if (window->parentWindow)
                     window->isActivated = false;
-                
-                // We can't track global mouse after we leave our surface, so set it to somewhere outside the window
-                self->currentMousePosition = MouseInputSource::offscreenMousePos;
-                self->handleMouseEvent (window);
-                
+
                 // Send mouse-up events for any held mouse buttons
                 if (ModifierKeys::currentModifiers.isLeftButtonDown())
                 {
@@ -1036,6 +1032,11 @@ void WaylandWindowSystem::setupGlobalInput()
                     self->updateMouseModifiers (BTN_MIDDLE, false);
                     self->handleMouseEvent (window);
                 }
+                
+                // We can't track global mouse after we leave our surface, so set it to somewhere outside the window
+                self->currentMousePosition = MouseInputSource::offscreenMousePos;
+                self->handleMouseEvent (window);
+                
             }
             self->pointerFocused = nullptr;
         },
@@ -1130,7 +1131,7 @@ void WaylandWindowSystem::setupGlobalInput()
             if (auto* window = self->pointerFocused)
             {
                 int touchIndex = self->currentTouches->getIndexOfTouch (window->peer, id + 1);
-                auto localPos = window->peer->globalToLocal (self->currentMousePosition);
+                auto localPos = self->currentMousePosition;
                  
                 self->currentTouchTime = time;
                  
