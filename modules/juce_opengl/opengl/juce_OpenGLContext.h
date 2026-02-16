@@ -336,11 +336,11 @@ public:
     //==============================================================================
     /** @cond */
     class NativeContext;
- 	class NativeContextListener;#if JUCE_LINUX
+ 	class NativeContextListener;
+#if JUCE_LINUX
     class X11NativeContext;
     class WaylandNativeContext;
 #endif
-   #endif
 
 private:
     enum class InitResult

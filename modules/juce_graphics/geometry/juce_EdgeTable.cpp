@@ -378,19 +378,6 @@ void EdgeTable::sanitiseLevels (const bool useNonZeroWinding) noexcept
     }
 }
 
-static void copyEdgeTableData (int* dest,
-                               size_t destLineStride,
-                               const int* src,
-                               size_t srcLineStride,
-                               size_t numLines) noexcept
-{
-    for (size_t line = 0; line < numLines; ++line)
-    {
-        const auto* srcLine = src + line * srcLineStride;
-        std::copy (srcLine, srcLine + *srcLine * 2 + 1, dest + line * destLineStride);
-    }
-}
-
 void EdgeTable::remapTableForNumEdges (const int newNumEdgesPerLine)
 {
     if (newNumEdgesPerLine != maxEdgesPerLine)

@@ -794,7 +794,6 @@ private:
         // According to a warning triggered on macOS 15 and above this doesn't do anything!
         [[(NSView*) comp.getWindowHandle() window] disableScreenUpdatesUntilFlush];
         #endif
-       #endif
     }
 
     void start()
@@ -1040,7 +1039,8 @@ void OpenGLContext::initialiseOnThread()
 {
     auto* c = getCachedImage();
     if(c && !c->isInitialised) {
-        c->initialiseOnThread();
+        CachedImage::ScopedContextActivator activator;
+        c->initialiseOnThread(activator);
     }
 }
 
