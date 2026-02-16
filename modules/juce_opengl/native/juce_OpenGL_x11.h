@@ -94,8 +94,9 @@ class OpenGLContext::NativeContext
         
         void handleCommandMessage (int commandId) override
         {
-            if (commandId == 0)
-                native.component.handleCommandMessage(0);
+            // TODO: fix this!
+            //if (commandId == 0)
+            //    native.component.handleCommandMessage(0);
         }
         
         OpenGLContext::NativeContext& native;
@@ -129,6 +130,9 @@ class OpenGLContext::NativeContext
     virtual bool createdOk() const noexcept = 0;
     virtual void* getRawContext() const noexcept = 0;
     GLuint getFrameBufferID() const noexcept    { return 0; }
+    
+    virtual void addListener (NativeContextListener&) {}
+    virtual void removeListener (NativeContextListener&) {}
   
     CriticalSection mutex;
 };

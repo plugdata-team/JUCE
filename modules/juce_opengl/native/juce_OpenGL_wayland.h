@@ -399,8 +399,8 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
     
     void triggerRepaint()
     {
-        if (context != nullptr)
-            context->triggerRepaint();
+        //if (context != nullptr)
+        //    context->triggerRepaint();
     }
     
     private:
