@@ -95,7 +95,7 @@ class OpenGLContext::NativeContext
         void handleCommandMessage (int commandId) override
         {
             if (commandId == 0)
-                native.triggerRepaint();
+                native.component.handleCommandMessage(0);
         }
         
         OpenGLContext::NativeContext& native;
@@ -430,8 +430,8 @@ public:
 
     void triggerRepaint()
     {
-        if (context != nullptr)
-            context->triggerRepaint();
+        //if (context != nullptr)
+        //    context->triggerRepaint();
     }
 
 

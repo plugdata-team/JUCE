@@ -62,7 +62,8 @@ public:
     enum StreamFlags
     {
         wantStdOut = 1,
-        wantStdErr = 2
+        wantStdErr = 2,
+        wantTtyOut = 4,
     };
 
     /** Attempts to launch a child process command.

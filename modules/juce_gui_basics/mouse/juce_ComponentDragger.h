@@ -83,6 +83,9 @@ public:
     */
     void startDraggingComponent (Component* componentToDrag,
                                  const MouseEvent& e);
+    
+    // If the object changes bounds, you'll need to use this to adjust the drag position
+    void updateMouseDownPosition(Point<int> positionWithinTarget);
 
     /** Call this from your mouseDrag() callback to move the component.
 

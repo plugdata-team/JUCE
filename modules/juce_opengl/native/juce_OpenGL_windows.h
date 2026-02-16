@@ -176,12 +176,6 @@ public:
     void* getRawContext() const noexcept            { return renderContext.get(); }
     unsigned int getFrameBufferID() const noexcept  { return 0; }
 
-    void triggerRepaint()
-    {
-        if (context != nullptr)
-            context->triggerRepaint();
-    }
-
     struct Locker
     {
         explicit Locker (NativeContext& ctx) : lock (ctx.mutex) {}
@@ -307,7 +301,10 @@ private:
         }
 
         // The windowing code will call this when a paint callback happens
-        void handleCommandMessage (int) override   { context.triggerRepaint(); }
+        void handleCommandMessage (int commandId) override {
+            if (commandId == 0 && context.safeComponent)
+                context.safeComponent->handleCommandMessage(0);
+        }
 
         NativeContext& context;
     };

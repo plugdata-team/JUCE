@@ -105,14 +105,17 @@ XWindowSystemUtilities::Atoms::Atoms (::Display* display)
     protocolList [TAKE_FOCUS]    = getIfExists (display, "WM_TAKE_FOCUS");
     protocolList [DELETE_WINDOW] = getIfExists (display, "WM_DELETE_WINDOW");
     protocolList [PING]          = getIfExists (display, "_NET_WM_PING");
+    protocolList [SYNC_REQUEST]  = getIfExists (display, "_NET_WM_SYNC_REQUEST");
+    xSyncCounter                 = getIfExists (display, "_NET_WM_SYNC_REQUEST_COUNTER");
     changeState                  = getIfExists (display, "WM_CHANGE_STATE");
     state                        = getIfExists (display, "WM_STATE");
-    userTime                     = getCreating (display, "_NET_WM_USER_TIME");
     activeWin                    = getCreating (display, "_NET_ACTIVE_WINDOW");
     pid                          = getCreating (display, "_NET_WM_PID");
     windowType                   = getIfExists (display, "_NET_WM_WINDOW_TYPE");
     windowState                  = getIfExists (display, "_NET_WM_STATE");
     windowStateHidden            = getIfExists (display, "_NET_WM_STATE_HIDDEN");
+
+    GTKFrameExtents              = getIfExists (display, "_GTK_FRAME_EXTENTS");
 
     XdndAware                    = getCreating (display, "XdndAware");
     XdndEnter                    = getCreating (display, "XdndEnter");
@@ -1084,6 +1087,18 @@ public:
         else
        #endif
             X11Symbols::getInstance()->xPutImage (display, (::Drawable) window, gc, xImage.get(), sx, sy, dx, dy, dw, dh);
+
+        auto* peer = static_cast<LinuxComponentPeer*>(getPeerFor(window));
+
+        if (!peer->newCounter) {
+            // counter hasn't been set, return
+            return;
+        }
+
+        peer->newCounter = false;
+
+       XWindowSystem::getInstance()->setSyncCounter(display, peer->extendedUpdateCounter, peer->updateCounterValue);
+       XWindowSystem::getInstance()->setSyncCounter(display, peer->updateCounter, peer->updateCounterValue);
     }
 
     #if JUCE_USE_XSHM
@@ -1607,8 +1622,20 @@ static int getAllEventsMask (bool ignoresMouseClicks)
     auto pid = (unsigned long) getpid();
     xchangeProperty (windowH, atoms.pid, XA_CARDINAL, 32, &pid, 1);
 
+    // register the counters for sync request
+    XSyncValue value;
+    XID counters[2];
+    X11Symbols::getInstance()->xSyncIntToValue(&value, 0);
+    peer->updateCounter = X11Symbols::getInstance()->xSyncCreateCounter(display, value);
+    peer->extendedUpdateCounter = X11Symbols::getInstance()->xSyncCreateCounter(display, value);
+
     // Set window manager protocols
     xchangeProperty (windowH, atoms.protocols, XA_ATOM, 32, atoms.protocolList, 2);
+
+    // reset the counters for sync request
+    counters[0] = peer->updateCounter;
+    counters[1] = peer->extendedUpdateCounter;
+    xchangeProperty (windowH, atoms.xSyncCounter, XA_CARDINAL, 32, (unsigned char*) &counters, 2);
 
     // Set drag and drop flags
     xchangeProperty (windowH, atoms.XdndTypeList, XA_ATOM, 32, atoms.allowedMimeTypes, numElementsInArray (atoms.allowedMimeTypes));
@@ -1620,6 +1647,31 @@ static int getAllEventsMask (bool ignoresMouseClicks)
 
     unsigned long info[2] = { 0, 1 };
     xchangeProperty (windowH, atoms.XembedInfo, atoms.XembedInfo, 32, (unsigned char*) info, 2);
+
+    // =================== setup XI2 for window ===================
+
+    //if (xi.touch_devices.size()) {
+
+        XIEventMask evmask;
+        unsigned char mask[XIMaskLen(XI_LASTEVENT)] = { 0 };
+
+        evmask.deviceid = XIAllDevices; // ask for all devices, but filter them in the event callback
+        evmask.mask_len = sizeof(mask);
+        evmask.mask = mask;
+
+        XISetMask (evmask.mask, XI_ButtonPress);
+        XISetMask (evmask.mask, XI_ButtonRelease);
+        XISetMask (evmask.mask, XI_Motion);
+
+        XISetMask(evmask.mask, XI_TouchBegin);
+        XISetMask(evmask.mask, XI_TouchUpdate);
+        XISetMask(evmask.mask, XI_TouchEnd);
+        //XISetMask(evmask.mask, XI_TouchOwnership);
+
+        X11Symbols::getInstance()->xiSelectEvents(display, windowH, &evmask, 1);
+    //}
+
+    setFrameExtents(windowH, true);
 
     return windowH;
 }
@@ -1725,6 +1777,20 @@ void XWindowSystem::setIcon (::Window windowH, const Image& newIcon) const
     X11Symbols::getInstance()->xSync (display, False);
 }
 
+void XWindowSystem::setFrameExtents(::Window windowH, bool enabled) const
+{
+    // set the frame extents to inset the frame when non-native window is used to allow snapping to the real window border
+    // this uses _GTK_FRAME_EXTENTS atom, which while named GTK, should be available in all major WM's due to Chrome using it
+    // more info: https://blogs.igalia.com/adunaev/2021/11/23/drop-shadows-on-linux-or-why-standards-are-good/
+
+    // FIXME: we need to use the peer->getPlatformScaleFactor here, but platformScaleFactor is not updated correctly in Linux platform code
+    // we need to register scaleFactorListeners listeners in juce_Windowing_linux.cpp, but we don't yet
+
+    long margin = enabled ? std::ceil(18 * Desktop::getInstance().getGlobalScaleFactor()) : 0;
+    long extents[4] = { margin, margin, margin, margin };
+    xchangeProperty(windowH, atoms.GTKFrameExtents, XA_CARDINAL, 32, (unsigned char*) extents, 4);
+}
+
 void XWindowSystem::setVisible (::Window windowH, bool shouldBeVisible) const
 {
     jassert (windowH != 0);
@@ -1806,12 +1872,14 @@ void XWindowSystem::startHostManagedResize (::Window windowH,
 {
     const auto moveResize = XWindowSystemUtilities::Atoms::getIfExists (display, "_NET_WM_MOVERESIZE");
 
-    if (moveResize == None)
+    if (moveResize == None || std::getenv("WAYLAND_DISPLAY"))
         return;
+
+    isHostResizing = true;
 
     XWindowSystemUtilities::ScopedXLock xLock;
 
-    X11Symbols::getInstance()->xUngrabPointer (display, CurrentTime);
+    X11Symbols::getInstance()->xUngrabPointer (display, (::Time) CurrentTime);
 
     const auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
     const auto mouseDown = getCurrentMousePosition();
@@ -1861,48 +1929,47 @@ void XWindowSystem::startHostManagedResize (::Window windowH,
                                            false,
                                            SubstructureRedirectMask | SubstructureNotifyMask,
                                            unalignedPointerCast<XEvent*> (&clientMsg));
+
+    usleep(16000); // FIXME: we shouldn't need to pause to give time for this event to register with the server
+    updateConstraints (windowH, true); // FIXME: in some situations (such as first click inside a screen recorder) this won't work, and the window will be able to be resized smaller than the constrainer!
 }
 
-void XWindowSystem::updateConstraints (::Window windowH) const
+void XWindowSystem::updateConstraints (::Window windowH, bool isHostManaged) const
 {
     if (auto* peer = getPeerFor (windowH))
-        updateConstraints (windowH, *peer);
+        updateConstraints (windowH, *peer, isHostManaged);
 }
 
-void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer) const
+void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer, bool isHostManaged) const
 {
     XWindowSystemUtilities::ScopedXLock xLock;
-
-    if (auto hints = makeXFreePtr (X11Symbols::getInstance()->xAllocSizeHints()))
+    XSizeHints hints;
+    // JUCE doesn't set windowIsResizable flag for non-native windows, but for X11 we can bypass this check when it's host managed resizing?
+    if (((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0) && !isHostManaged)
     {
-        if ((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0)
-        {
-            hints->min_width  = hints->max_width  = peer.getBounds().getWidth();
-            hints->min_height = hints->max_height = peer.getBounds().getHeight();
-            hints->flags = PMinSize | PMaxSize;
-        }
-        else if (auto* c = peer.getConstrainer())
-        {
-            const auto windowBorder = [&]() -> BorderSize<int>
-            {
-                if (const auto& frameSize = peer.getFrameSizeIfPresent())
-                    return *frameSize;
-
-                return {};
-            }();
-
-            const auto factor       = peer.getPlatformScaleFactor();
-            const auto leftAndRight = windowBorder.getLeftAndRight();
-            const auto topAndBottom = windowBorder.getTopAndBottom();
-            hints->min_width  = jmax (1, (int) (factor * c->getMinimumWidth())  - leftAndRight);
-            hints->max_width  = jmax (1, (int) (factor * c->getMaximumWidth())  - leftAndRight);
-            hints->min_height = jmax (1, (int) (factor * c->getMinimumHeight()) - topAndBottom);
-            hints->max_height = jmax (1, (int) (factor * c->getMaximumHeight()) - topAndBottom);
-            hints->flags = PMinSize | PMaxSize;
-        }
-
-        X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, hints.get());
+        hints.min_width  = hints.max_width  = peer.getBounds().getWidth();
+        hints.min_height = hints.max_height = peer.getBounds().getHeight();
+        hints.flags = PMinSize | PMaxSize;
     }
+    else if (auto* c = peer.getConstrainer())
+    {
+        const auto windowBorder = [&]() -> BorderSize<int> {
+            if (const auto& frameSize = peer.getFrameSizeIfPresent())
+                return *frameSize;
+
+            return {};
+        }();
+
+        const auto factor       = peer.getPlatformScaleFactor() * Desktop::getInstance().getGlobalScaleFactor();
+        const auto leftAndRight = windowBorder.getLeftAndRight();
+        const auto topAndBottom = windowBorder.getTopAndBottom();
+        hints.min_width  = jmax (1, (int) (factor * c->getMinimumWidth())  - leftAndRight);
+        hints.max_width  = jmax (1, (int) (factor * c->getMaximumWidth())  - leftAndRight);
+        hints.min_height = jmax (1, (int) (factor * c->getMinimumHeight()) - topAndBottom);
+        hints.max_height = jmax (1, (int) (factor * c->getMaximumHeight()) - topAndBottom);
+        hints.flags = PMinSize | PMaxSize;
+    }
+    X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, &hints);
 }
 
 bool XWindowSystem::contains (::Window windowH, Point<int> localPos) const
@@ -1991,7 +2058,7 @@ void XWindowSystem::setMinimised (::Window windowH, bool shouldBeMinimised) cons
 
     if (shouldBeMinimised)
     {
-        auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
+        const auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
 
         XClientMessageEvent clientMsg;
         clientMsg.display = display;
@@ -2013,6 +2080,8 @@ bool XWindowSystem::isMinimised (::Window w) const
 
 void XWindowSystem::setMaximised (::Window windowH, bool shouldBeMaximised) const
 {
+    setFrameExtents(windowH, !shouldBeMaximised);
+
     const auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
 
     XEvent ev;
@@ -2034,24 +2103,23 @@ void XWindowSystem::toFront (::Window windowH, bool) const
 {
     jassert (windowH != 0);
 
+    const auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
+
+    XClientMessageEvent xclient;
+    xclient.type = ClientMessage;
+    xclient.serial = 0;
+    xclient.send_event = True;
+    xclient.message_type = atoms.activeWin;
+    xclient.window = windowH;
+    xclient.format = 32;
+    xclient.data.l[0] = 1; // originally 2 (pager)? 1 is app
+    xclient.data.l[1] = CurrentTime;
+    xclient.data.l[2] = 0;
+    xclient.data.l[3] = 0;
+    xclient.data.l[4] = 0;
+
     XWindowSystemUtilities::ScopedXLock xLock;
-    XEvent ev;
-    ev.xclient.type = ClientMessage;
-    ev.xclient.serial = 0;
-    ev.xclient.send_event = True;
-    ev.xclient.message_type = atoms.activeWin;
-    ev.xclient.window = windowH;
-    ev.xclient.format = 32;
-    ev.xclient.data.l[0] = 2;
-    ev.xclient.data.l[1] = getUserTime (windowH);
-    ev.xclient.data.l[2] = 0;
-    ev.xclient.data.l[3] = 0;
-    ev.xclient.data.l[4] = 0;
-
-    X11Symbols::getInstance()->xSendEvent (display, X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display)),
-                                           False, SubstructureRedirectMask | SubstructureNotifyMask, &ev);
-
-    X11Symbols::getInstance()->xSync (display, False);
+    X11Symbols::getInstance()->xSendEvent (display, root, False, SubstructureRedirectMask | SubstructureNotifyMask, (XEvent*) &xclient);
 }
 
 void XWindowSystem::toBehind (::Window windowH, ::Window otherWindow) const
@@ -2106,7 +2174,7 @@ bool XWindowSystem::grabFocus (::Window windowH) const
         && atts.map_state == IsViewable
         && ! isFocused (windowH))
     {
-        X11Symbols::getInstance()->xSetInputFocus (display, getFocusWindow (windowH), RevertToParent, (::Time) getUserTime (windowH));
+        X11Symbols::getInstance()->xSetInputFocus (display, getFocusWindow (windowH), RevertToParent, (::Time)CurrentTime);
         return true;
     }
 
@@ -2510,6 +2578,14 @@ bool XWindowSystem::isKeyCurrentlyDown (int keyCode) const
     auto keybit = (1 << (keycode & 7));
 
     return (Keys::keyStates [keybyte] & keybit) != 0;
+}
+
+void XWindowSystem::setSyncCounter(Display* display, XSyncCounter counter, int64 value)
+{
+    XSyncValue syncValue;
+
+    X11Symbols::getInstance()->xSyncIntsToValue(&syncValue, value & 0xFFFFFFFF, value >> 32);
+    X11Symbols::getInstance()->xSyncSetCounter(display, counter, syncValue);
 }
 
 ModifierKeys XWindowSystem::getNativeRealtimeModifiers() const
@@ -3153,21 +3229,6 @@ void XWindowSystem::updateModifierMappings() const
     }
 }
 
-long XWindowSystem::getUserTime (::Window windowH) const
-{
-    jassert (windowH != 0);
-
-    XWindowSystemUtilities::GetXProperty prop (display, windowH, atoms.userTime, 0, 65536, false, XA_CARDINAL);
-
-    if (! prop.success)
-        return 0;
-
-    long result = 0;
-    std::memcpy (&result, prop.data, sizeof (long));
-
-    return result;
-}
-
 void XWindowSystem::initialiseXSettings()
 {
     xSettings = XWindowSystemUtilities::XSettings::createXSettings (display);
@@ -3269,6 +3330,7 @@ bool XWindowSystem::initialiseXDisplay()
     initialisePointerMap();
     updateModifierMappings();
     initialiseXSettings();
+    initialiseXI2Devices();
 
    #if JUCE_USE_XSHM
     if (XSHMHelpers::isShmAvailable (display))
@@ -3306,6 +3368,7 @@ bool XWindowSystem::initialiseXDisplay()
                                                 }
                                                 else if (evt.xany.window != juce_messageWindowHandle)
                                                 {
+                                                    xiMessageReceive (evt);
                                                     windowMessageReceive (evt);
                                                 }
 
@@ -3313,6 +3376,35 @@ bool XWindowSystem::initialiseXDisplay()
                                         });
 
     return true;
+}
+
+void XWindowSystem::initialiseXI2Devices()
+{
+    mouseDevices.clear();
+
+    int dev_count = 0;
+    XIButtonClassInfo *buttonClassInfo;
+    XIDeviceInfo* info = X11Symbols::getInstance()->xiQueryDevice(display, XIAllDevices, &dev_count);
+
+    for (int i = 0; i < dev_count; i++) {
+        XIDeviceInfo* dev = &info[i];
+        if (!dev->enabled) {
+            continue;
+        }
+
+        if (!(dev->use == XISlavePointer || dev->use == XIFloatingSlave)) {
+            continue;
+        }
+
+        for (int j = 0; j < dev->num_classes; j++) {
+            buttonClassInfo = (XIButtonClassInfo*)(dev->classes[j]);
+
+            if (buttonClassInfo->type == XIButtonClass) {
+                mouseDevices.add(buttonClassInfo->sourceid);
+            }
+        }
+    }
+    X11Symbols::getInstance()->xiFreeDeviceInfo(info);
 }
 
 void XWindowSystem::destroyXDisplay()
@@ -3355,9 +3447,15 @@ void juce_deleteKeyProxyWindow (::Window keyProxy)
 
 //==============================================================================
 template <typename EventType>
-static Point<float> getLogicalMousePos (const EventType& e, double scaleFactor) noexcept
+static Point<float> getLogicalMousePos(const EventType& e, double scaleFactor) noexcept
 {
-    return Point<float> ((float) e.x, (float) e.y) / scaleFactor;
+    return Point<float>((float)e.x, (float)e.y) / scaleFactor;
+}
+
+// Specialized implementation for XIDeviceEvent
+Point<float> getLogicalMousePos(const XIDeviceEvent* e, double scaleFactor) noexcept
+{
+    return Point<float>((float)e->event_x, (float)e->event_y) / scaleFactor;
 }
 
 static int64 getEventTime (::Time t)
@@ -3383,9 +3481,10 @@ void XWindowSystem::handleWindowMessage (LinuxComponentPeer* peer, XEvent& event
     {
         case KeyPressEventType:     handleKeyPressEvent        (peer, event.xkey);                     break;
         case KeyRelease:            handleKeyReleaseEvent      (peer, event.xkey);                     break;
-        case ButtonPress:           handleButtonPressEvent     (peer, event.xbutton);                  break;
-        case ButtonRelease:         handleButtonReleaseEvent   (peer, event.xbutton);                  break;
-        case MotionNotify:          handleMotionNotifyEvent    (peer, event.xmotion);                  break;
+
+        // deal with mouse via XI2
+        // TODO: expand to all input devices - keep window messages here
+
         case EnterNotify:           handleEnterNotifyEvent     (peer, event.xcrossing);                break;
         case LeaveNotify:           handleLeaveNotifyEvent     (peer, event.xcrossing);                break;
         case FocusIn:               handleFocusInEvent         (peer);                                 break;
@@ -3585,7 +3684,7 @@ void XWindowSystem::handleKeyReleaseEvent (LinuxComponentPeer* peer, const XKeyE
     }
 }
 
-void XWindowSystem::handleWheelEvent (LinuxComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent, float amount) const
+void XWindowSystem::handleWheelEvent (LinuxComponentPeer* peer, const XIDeviceEvent* buttonPressEvent, float amount) const
 {
     MouseWheelDetails wheel;
     wheel.deltaX = 0.0f;
@@ -3595,23 +3694,24 @@ void XWindowSystem::handleWheelEvent (LinuxComponentPeer* peer, const XButtonPre
     wheel.isInertial = false;
 
     peer->handleMouseWheel (MouseInputSource::InputSourceType::mouse, getLogicalMousePos (buttonPressEvent, peer->getPlatformScaleFactor()),
-                            getEventTime (buttonPressEvent), wheel);
+                            getEventTime (*buttonPressEvent), wheel);
 }
 
-void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent, int buttonModifierFlag) const
+
+void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, const XIDeviceEvent* buttonPressEvent, int buttonModifierFlag) const
 {
     ModifierKeys::currentModifiers = ModifierKeys::getCurrentModifiers().withFlags (buttonModifierFlag);
     peer->toFront (true);
     peer->handleMouseEvent (MouseInputSource::InputSourceType::mouse, getLogicalMousePos (buttonPressEvent, peer->getPlatformScaleFactor()),
-                            ModifierKeys::getCurrentModifiers(), MouseInputSource::defaultPressure,
-                            MouseInputSource::defaultOrientation, getEventTime (buttonPressEvent), {});
+                            ModifierKeys::currentModifiers, MouseInputSource::defaultPressure,
+                            MouseInputSource::defaultOrientation, getEventTime (*buttonPressEvent), {});
 }
 
-void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent) const
+void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, const XIDeviceEvent* buttonPressEvent) const
 {
-    updateKeyModifiers ((int) buttonPressEvent.state);
+    updateKeyModifiers ((int) buttonPressEvent->mods.effective);
 
-    auto mapIndex = (uint32) (buttonPressEvent.button - Button1);
+    auto mapIndex = (uint32) (buttonPressEvent->detail - Button1);
 
     if (mapIndex < (uint32) numElementsInArray (pointerMap))
     {
@@ -3630,14 +3730,14 @@ void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, const XBut
     }
 }
 
-void XWindowSystem::handleButtonReleaseEvent (LinuxComponentPeer* peer, const XButtonReleasedEvent& buttonRelEvent) const
+void XWindowSystem::handleButtonReleaseEvent (LinuxComponentPeer* peer, const XIDeviceEvent* buttonRelEvent) const
 {
-    updateKeyModifiers ((int) buttonRelEvent.state);
+    updateKeyModifiers ((int) buttonRelEvent->mods.effective);
 
     if (peer->getParentWindow() != 0)
         peer->updateWindowBounds();
 
-    auto mapIndex = (uint32) (buttonRelEvent.button - Button1);
+    auto mapIndex = (uint32) (buttonRelEvent->detail - Button1);
 
     if (mapIndex < (uint32) numElementsInArray (pointerMap))
     {
@@ -3659,12 +3759,16 @@ void XWindowSystem::handleButtonReleaseEvent (LinuxComponentPeer* peer, const XB
         dragState.handleExternalDragButtonReleaseEvent();
 
     peer->handleMouseEvent (MouseInputSource::InputSourceType::mouse, getLogicalMousePos (buttonRelEvent, peer->getPlatformScaleFactor()),
-                            ModifierKeys::getCurrentModifiers(), MouseInputSource::defaultPressure, MouseInputSource::defaultOrientation, getEventTime (buttonRelEvent));
+                            ModifierKeys::currentModifiers, MouseInputSource::defaultPressure, MouseInputSource::defaultOrientation, getEventTime (*buttonRelEvent));
 }
 
-void XWindowSystem::handleMotionNotifyEvent (LinuxComponentPeer* peer, const XPointerMovedEvent& movedEvent) const
+void XWindowSystem::handleMotionNotifyEvent (LinuxComponentPeer* peer, const XIDeviceEvent* movedEvent) const
 {
-    updateKeyModifiers ((int) movedEvent.state);
+    // discard this event if the host has control over resizing the window
+    if (isHostResizing)
+        return;
+
+    updateKeyModifiers ((int) movedEvent->mods.effective);
     Keys::refreshStaleMouseKeys();
 
     auto& dragState = dragAndDropStateMap[peer];
@@ -3673,8 +3777,8 @@ void XWindowSystem::handleMotionNotifyEvent (LinuxComponentPeer* peer, const XPo
         dragState.handleExternalDragMotionNotify();
 
     peer->handleMouseEvent (MouseInputSource::InputSourceType::mouse, getLogicalMousePos (movedEvent, peer->getPlatformScaleFactor()),
-                            ModifierKeys::getCurrentModifiers(), MouseInputSource::defaultPressure,
-                            MouseInputSource::defaultOrientation, getEventTime (movedEvent));
+                            ModifierKeys::currentModifiers, MouseInputSource::defaultPressure,
+                            MouseInputSource::defaultOrientation, getEventTime (*movedEvent));
 }
 
 void XWindowSystem::handleEnterNotifyEvent (LinuxComponentPeer* peer, const XEnterWindowEvent& enterEvent) const
@@ -3900,6 +4004,12 @@ void XWindowSystem::handleClientMessageEvent (LinuxComponentPeer* peer, XClientM
         {
             peer->handleUserClosingWindow();
         }
+        else if (atom == atoms.protocolList [XWindowSystemUtilities::Atoms::SYNC_REQUEST])
+        {
+            peer->updateCounterValue = clientMsg.data.l[2];
+            peer->newCounter = true;
+            //auto syncMode = clientMsg.data.l[4]; // TODO: check what mode the WM wants to report to us with
+        }
     }
     else if (clientMsg.message_type == atoms.XdndEnter)
     {
@@ -3962,6 +4072,46 @@ void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer, const XConf
 
     if (configure.window != peerHandle && isParentWindowOf (configure.window, peerHandle))
         dismissBlockingModals (peer);
+}
+
+void XWindowSystem::xiMessageReceive (XEvent& ev)
+{
+    // check if its an xi event, which will have xcookie data
+    if (X11Symbols::getInstance()->xGetEventData(display, &ev.xcookie)) {
+        if (ev.xcookie.type == GenericEvent) {
+            XGenericEventCookie* xCookie = &ev.xcookie;
+            XIDeviceEvent* event = reinterpret_cast<XIDeviceEvent*>(xCookie->data);
+
+            // discard event if super key is held down
+            // super key + mouse down = WM move window
+            // super key + shift + mouse down = WM move window with snapping
+            if (event->mods.base & Mod4Mask)
+                goto bypass;
+
+            // discard event if it did not come from populated devices
+            if (! mouseDevices.contains(event->sourceid))
+                goto bypass;
+
+            if (auto* peer = dynamic_cast<LinuxComponentPeer*>(getPeerFor(event->event))) {
+                switch (xCookie->evtype) {
+                case XI_ButtonPress:
+                    handleButtonPressEvent(peer, event);
+                break;
+                case XI_ButtonRelease:
+                    isHostResizing = false;
+                    handleButtonReleaseEvent(peer, event);
+                break;
+                case XI_Motion:
+                    handleMotionNotifyEvent(peer, event);
+                break;
+                default:
+                break;
+                }
+            }
+        }
+    }
+    bypass:
+    X11Symbols::getInstance()->xFreeEventData(display, &ev.xcookie);
 }
 
 void XWindowSystem::windowMessageReceive (XEvent& event)

@@ -342,14 +342,14 @@ bool KeyPressMappingSet::keyPressed (const KeyPress& key, Component* const origi
                             invokeCommand (cm.commandID, key, true, 0, originatingComponent);
                             return true;
                         }
-
-                        commandWasDisabled = true;
+ 
+                        commandWasDisabled = (info.flags & ApplicationCommandInfo::dontTriggerAlertSound) == 0;
                     }
                 }
             }
         }
-    }
-
+    } 
+    
     if (originatingComponent != nullptr && commandWasDisabled)
         originatingComponent->getLookAndFeel().playAlertSound();
 

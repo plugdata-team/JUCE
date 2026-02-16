@@ -115,7 +115,7 @@ public:
 protected:
     //==============================================================================
     /** Called when the cached path should be updated. */
-    void pathChanged();
+    virtual void pathChanged();
     /** Called when the cached stroke should be updated. */
     void strokeChanged();
     /** True if there's a stroke with a non-zero thickness and non-transparent colour. */

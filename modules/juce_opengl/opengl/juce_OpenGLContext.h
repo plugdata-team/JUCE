@@ -85,6 +85,12 @@ public:
     */
     void attachTo (Component&);
 
+    /**  Hides the openGL context, so you can do off-screen rendering
+     */
+    void setVisible(bool shouldBeVisible);
+    
+    bool isVisible();
+    
     /** Detaches the context from its target component and deletes any native resources.
         If the context has not been attached, this will do nothing. Otherwise, it will block
         until the context and its thread have been cleaned up.
@@ -96,6 +102,10 @@ public:
         return false until the component is made visible.
     */
     bool isAttached() const noexcept;
+    
+    /** Perform thread-specific initialisation for openGL
+     **/
+    void initialiseOnThread();
 
     /** Returns the component to which this context is currently attached, or nullptr. */
     Component* getTargetComponent() const noexcept;
@@ -135,7 +145,7 @@ public:
         If enabling this, you must call this method before attachTo().
     */
     void setMultisamplingEnabled (bool) noexcept;
-
+    
     /** Returns true if shaders can be used in this context. */
     bool areShadersAvailable() const;
 
@@ -190,8 +200,6 @@ public:
     */
     void setContinuousRepainting (bool shouldContinuouslyRepaint) noexcept;
 
-    /** Asynchronously causes a repaint to be made. */
-    void triggerRepaint();
 
     //==============================================================================
     /** This retrieves an object that was previously stored with setAssociatedObject().
@@ -260,26 +268,6 @@ public:
     int getSwapInterval() const;
 
     //==============================================================================
-    /** Execute a lambda, function or functor on the OpenGL thread with an active
-        context.
-
-        This method will attempt to execute functor on the OpenGL thread. If
-        blockUntilFinished is true then the method will block until the functor
-        has finished executing.
-
-        This function can only be called if the context is attached to a component.
-        Otherwise, this function will assert.
-
-        This function is useful when you need to execute house-keeping tasks such
-        as allocating, deallocating textures or framebuffers. As such, the functor
-        will execute without locking the message thread. Therefore, it is not
-        intended for any drawing commands or GUI code. Any GUI code should be
-        executed in the OpenGLRenderer::renderOpenGL callback instead.
-    */
-    template <typename T>
-    void executeOnGLThread (T&& functor, bool blockUntilFinished);
-
-    //==============================================================================
     /** Returns a scale factor that relates the context component's size to the number
         of physical pixels it covers on the screen.
 
@@ -290,7 +278,7 @@ public:
         Note that this should only be called during an OpenGLRenderer::renderOpenGL()
         callback - at other times the value it returns is undefined.
     */
-    double getRenderingScale() const noexcept   { return currentRenderScale; }
+    double getRenderingScale() const noexcept;
 
     //==============================================================================
     /** If this context is backed by a frame buffer, this returns its ID number,
@@ -398,15 +386,8 @@ private:
 
     //==============================================================================
     CachedImage* getCachedImage() const noexcept;
-    void execute (AsyncWorker::Ptr, bool);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenGLContext)
 };
-
-//==============================================================================
-/** @cond */
-void OpenGLContext::executeOnGLThread (FunctionType&& f, bool shouldBlock) { execute (new AsyncWorkerFunctor<FunctionType> (f), shouldBlock); }
-template <typename FunctionType>
-/** @endcond */
 
 } // namespace juce

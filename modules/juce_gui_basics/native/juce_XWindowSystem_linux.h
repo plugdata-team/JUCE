@@ -80,7 +80,8 @@ namespace XWindowSystemUtilities
         {
             TAKE_FOCUS = 0,
             DELETE_WINDOW = 1,
-            PING = 2
+            PING = 2,
+            SYNC_REQUEST = 3
         };
 
         Atoms() = default;
@@ -94,7 +95,7 @@ namespace XWindowSystemUtilities
 
         static constexpr unsigned long DndVersion = 3;
 
-        Atom protocols, protocolList[3], changeState, state, userTime, activeWin, pid, windowType, windowState, windowStateHidden,
+        Atom protocols, protocolList[4], xSyncCounter, changeState, state, activeWin, pid, windowType, windowState, windowStateHidden, GTKFrameExtents,
              XdndAware, XdndEnter, XdndLeave, XdndPosition, XdndStatus, XdndDrop, XdndFinished, XdndSelection,
              XdndTypeList, XdndActionList, XdndActionDescription, XdndActionCopy, XdndActionPrivate,
              XembedMsgType, XembedInfo, allowedActions[5], allowedMimeTypes[4], utf8String, clipboard, targets;
@@ -188,7 +189,7 @@ public:
     void setIcon (::Window , const Image&) const;
     void setVisible (::Window, bool shouldBeVisible) const;
     void setBounds (::Window, Rectangle<int>, bool fullScreen) const;
-    void updateConstraints (::Window) const;
+    void updateConstraints (::Window, bool isHostManaged = false) const;
 
     ComponentPeer::OptionalBorderSize getBorderSize (::Window) const;
     Rectangle<int> getWindowBounds (::Window, ::Window parentWindow);
@@ -232,6 +233,8 @@ public:
     bool isKeyCurrentlyDown (int keyCode) const;
     ModifierKeys getNativeRealtimeModifiers() const;
 
+    static void setSyncCounter(Display* display, XSyncCounter counter, int64 value);
+
     Array<Displays::Display> findDisplays (float masterScale) const;
 
     ::Window createKeyProxy (::Window);
@@ -256,6 +259,8 @@ public:
     static String getWindowScalingFactorSettingName()  { return "Gdk/WindowScalingFactor"; }
     static String getThemeNameSettingName()            { return "Net/ThemeName"; }
 
+    void setFrameExtents(::Window windowH, bool enabled) const;
+
     //==============================================================================
     void handleWindowMessage (LinuxComponentPeer*, XEvent&) const;
     bool isParentWindowOf (::Window, ::Window possibleChild) const;
@@ -266,6 +271,8 @@ public:
 private:
     XWindowSystem();
     ~XWindowSystem();
+
+    bool isHostResizing = false;
 
     //==============================================================================
     struct VisualAndDepth
@@ -288,6 +295,8 @@ private:
 
     bool initialiseXDisplay();
     void destroyXDisplay();
+
+    void initialiseXI2Devices();
 
     //==============================================================================
     ::Window getFocusWindow (::Window) const;
@@ -314,11 +323,11 @@ private:
     //==============================================================================
     void handleKeyPressEvent        (LinuxComponentPeer*, XKeyEvent&) const;
     void handleKeyReleaseEvent      (LinuxComponentPeer*, const XKeyEvent&) const;
-    void handleWheelEvent           (LinuxComponentPeer*, const XButtonPressedEvent&, float) const;
-    void handleButtonPressEvent     (LinuxComponentPeer*, const XButtonPressedEvent&, int) const;
-    void handleButtonPressEvent     (LinuxComponentPeer*, const XButtonPressedEvent&) const;
-    void handleButtonReleaseEvent   (LinuxComponentPeer*, const XButtonReleasedEvent&) const;
-    void handleMotionNotifyEvent    (LinuxComponentPeer*, const XPointerMovedEvent&) const;
+    void handleWheelEvent           (LinuxComponentPeer*, const XIDeviceEvent*, float) const;
+    void handleButtonPressEvent     (LinuxComponentPeer*, const XIDeviceEvent*, int) const;
+    void handleButtonPressEvent     (LinuxComponentPeer*, const XIDeviceEvent*) const;
+    void handleButtonReleaseEvent   (LinuxComponentPeer*, const XIDeviceEvent*) const;
+    void handleMotionNotifyEvent    (LinuxComponentPeer*, const XIDeviceEvent*) const;
     void handleEnterNotifyEvent     (LinuxComponentPeer*, const XEnterWindowEvent&) const;
     void handleLeaveNotifyEvent     (LinuxComponentPeer*, const XLeaveWindowEvent&) const;
     void handleFocusInEvent         (LinuxComponentPeer*) const;
@@ -333,11 +342,14 @@ private:
 
     void dismissBlockingModals      (LinuxComponentPeer*) const;
     void dismissBlockingModals      (LinuxComponentPeer*, const XConfigureEvent&) const;
-    void updateConstraints          (::Window, ComponentPeer&) const;
+    void updateConstraints          (::Window, ComponentPeer&, bool isHostManaged = false) const;
 
     ::Window findTopLevelWindowOf (::Window) const;
 
+    void xiMessageReceive (XEvent&);
     static void windowMessageReceive (XEvent&);
+
+    Array<int> mouseDevices;
 
     //==============================================================================
     bool xIsAvailable = false;

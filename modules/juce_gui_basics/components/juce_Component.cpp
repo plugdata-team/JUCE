@@ -2102,7 +2102,7 @@ void Component::postCommandMessage (int commandID)
     });
 }
 
-void Component::handleCommandMessage (int)
+void Component::handleCommandMessage (int commandID)
 {
     // used by subclasses
 }

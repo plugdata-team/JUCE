@@ -219,8 +219,7 @@ namespace TextEditorDefs
 
     static int getCharacterCategory (juce_wchar character) noexcept
     {
-        return CharacterFunctions::isLetterOrDigit (character)
-                    ? 2 : (CharacterFunctions::isWhitespace (character) ? 0 : 1);
+        return CharacterFunctions::isWhitespace (character) ? 0 : 1;
     }
 }
 
@@ -1640,7 +1639,7 @@ void TextEditor::mouseDoubleClick (const MouseEvent& e)
             auto c = t[tokenEnd];
 
             // (note the slight bodge here - it's because iswalnum only checks for alphabetic chars in the current locale)
-            if (CharacterFunctions::isLetterOrDigit (c) || c > 128)
+            if (!CharacterFunctions::isWhitespace (c))
                 ++tokenEnd;
             else
                 break;
@@ -1653,7 +1652,7 @@ void TextEditor::mouseDoubleClick (const MouseEvent& e)
             auto c = t[tokenStart - 1];
 
             // (note the slight bodge here - it's because iswalnum only checks for alphabetic chars in the current locale)
-            if (CharacterFunctions::isLetterOrDigit (c) || c > 128)
+            if (!CharacterFunctions::isWhitespace (c))
                 --tokenStart;
             else
                 break;
@@ -1897,6 +1896,30 @@ bool TextEditor::keyPressed (const KeyPress& key)
                      && key != KeyPress ('a', ModifierKeys::commandModifier, 0))
         return false;
 
+    
+    
+    if(key.getModifiers().isShiftDown() && !(key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown() || key.getModifiers().isAltDown()))
+    {
+        if (key.isKeyCode (KeyPress::leftKey))  {
+            moveCaretLeft(false, true); // Move caret left and select
+            return true;
+        }
+        else if (key.isKeyCode (KeyPress::rightKey)) {
+            moveCaretRight(false, true); // Move caret right and select
+            return true;
+        }
+    }
+    if(!key.getModifiers().isShiftDown() && !getHighlightedRegion().isEmpty()) {
+        if (key.isKeyCode (KeyPress::leftKey))  {
+            setCaretPosition(getHighlightedRegion().getStart());
+            return true;
+        }
+        else if (key.isKeyCode (KeyPress::rightKey)) {
+            setCaretPosition(getHighlightedRegion().getEnd());
+            return true;
+        }
+    }
+    
     if (! TextEditorKeyMapper<TextEditor>::invokeKeyFunction (*this, key))
     {
         if (key == KeyPress::returnKey)
@@ -2246,18 +2269,18 @@ int TextEditor::findWordBreakAfter (const int position) const
     auto totalLength = t.length();
     int i = 0;
 
-    while (i < totalLength && CharacterFunctions::isWhitespace (t[i]))
+    while (i <= totalLength && CharacterFunctions::isWhitespace (t[i]))
         ++i;
 
     auto type = TextEditorDefs::getCharacterCategory (t[i]);
 
-    while (i < totalLength && type == TextEditorDefs::getCharacterCategory (t[i]))
+    while (i <= totalLength && type == TextEditorDefs::getCharacterCategory (t[i]))
         ++i;
 
-    while (i < totalLength && CharacterFunctions::isWhitespace (t[i]))
+    while (i <= totalLength && CharacterFunctions::isWhitespace (t[i]))
         ++i;
 
-    return position + i;
+    return position + i - 1;
 }
 
 int TextEditor::findWordBreakBefore (const int position) const

@@ -82,6 +82,7 @@ void MouseInputSource::hideCursor()                                      { pimpl
 void MouseInputSource::revealCursor()                                    { pimpl->revealCursor (false); }
 void MouseInputSource::forceMouseCursorUpdate()                          { pimpl->revealCursor (true); }
 void MouseInputSource::setScreenPosition (Point<float> p)                { pimpl->setScreenPosition (p); }
+void MouseInputSource::cancelTouchEvent() const noexcept                 { pimpl->buttonState = pimpl->buttonState.withoutMouseButtons(); }
 
 void MouseInputSource::handleEvent (ComponentPeer& peer, Point<float> pos, int64 time, ModifierKeys mods,
                                     float pressure, float orientation, const PenDetails& penDetails)

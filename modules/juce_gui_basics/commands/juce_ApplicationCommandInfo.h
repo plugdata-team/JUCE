@@ -185,7 +185,12 @@ struct JUCE_API  ApplicationCommandInfo
             buttons or menus that are also connected to the command will not flash to
             indicate that they've been triggered.
         */
-        dontTriggerVisualFeedback   = 1 << 5
+        dontTriggerVisualFeedback   = 1 << 5,
+        
+        /** If this flag is present and the command can't be invoked from a keypress,
+             it won't play the alert sound
+        */
+        dontTriggerAlertSound   = 1 << 6
     };
 
     /** A bitwise-OR of the values specified in the CommandFlags enum.

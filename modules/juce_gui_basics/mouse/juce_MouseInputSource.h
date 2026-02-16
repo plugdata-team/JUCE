@@ -229,6 +229,8 @@ public:
 
     /** Attempts to set this mouse pointer's screen position. */
     void setScreenPosition (Point<float> newPosition);
+    
+    void cancelTouchEvent() const noexcept;
 
     /** A default value for pressure, which is used when a device doesn't support it, or for
         mouse-moves, mouse-ups, etc.

@@ -62,9 +62,9 @@ public:
         if (topComp->getPeer() != nullptr)
         {
             auto pos = topComp->getLocalPoint (&owner, Point<int>());
-
-            [view setFrame: CGRectMake ((float) pos.x, (float) pos.y,
-                                        (float) owner.getWidth(), (float) owner.getHeight())];
+            auto globalScale = Desktop::getInstance().getGlobalScaleFactor();
+            [view setFrame: CGRectMake ((float) pos.x * globalScale, (float) pos.y * globalScale,
+                                        (float) owner.getWidth() * globalScale, (float) owner.getHeight() * globalScale)];
         }
     }
 

@@ -181,7 +181,7 @@ public:
         When doing this, be sure to note the keyboard's orientation.
     */
     virtual void drawWhiteNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
-                                bool isDown, bool isOver, Colour lineColour, Colour textColour);
+                                bool isDown, bool isOver) = 0;
 
     /** Use this method to draw a black note of the keyboard in a given rectangle.
 
@@ -191,7 +191,7 @@ public:
         When doing this, be sure to note the keyboard's orientation.
     */
     virtual void drawBlackNote (int midiNoteNumber, Graphics& g, Rectangle<float> area,
-                                bool isDown, bool isOver, Colour noteFillColour);
+                                bool isDown, bool isOver) = 0;
 
     /** Callback when the mouse is clicked on a key.
 
@@ -253,7 +253,7 @@ public:
 
 private:
     //==============================================================================
-    void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override final;
+    void drawKeyboardBackground (Graphics& g, Rectangle<float> area) override;
     void drawWhiteKey (int midiNoteNumber, Graphics& g, Rectangle<float> area) override final;
     void drawBlackKey (int midiNoteNumber, Graphics& g, Rectangle<float> area) override final;
 

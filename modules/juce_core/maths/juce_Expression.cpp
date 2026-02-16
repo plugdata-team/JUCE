@@ -1007,7 +1007,9 @@ double Expression::evaluate (const Scope& scope, String& evaluationError) const
 {
     try
     {
-        return term->resolve (scope, 0)->toDouble();
+        if(term) {
+            return term->resolve (scope, 0)->toDouble();
+        }
     }
     catch (Helpers::EvaluationError& e)
     {

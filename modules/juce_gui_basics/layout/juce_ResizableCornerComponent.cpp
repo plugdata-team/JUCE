@@ -67,9 +67,11 @@ void ResizableCornerComponent::mouseDown (const MouseEvent& e)
     using Zone = ResizableBorderComponent::Zone;
     const Zone zone { Zone::bottom | Zone::right };
 
+    auto position = e.getEventRelativeTo(component).getPosition();
+
     if (auto* peer = component->getPeer())
-        if (&peer->getComponent() == component)
-            peer->startHostManagedResize (peer->globalToLocal (localPointToGlobal (e.getPosition())), zone);
+        if (allowHostManagedResize && component == &peer->getComponent())
+            peer->startHostManagedResize(position, zone);
 
     if (constrainer != nullptr)
         constrainer->resizeStart();

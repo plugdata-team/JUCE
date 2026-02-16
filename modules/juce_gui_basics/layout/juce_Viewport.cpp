@@ -270,8 +270,10 @@ void Viewport::setViewPosition (const int xPixelsOffset, const int yPixelsOffset
 
 void Viewport::setViewPosition (Point<int> newPosition)
 {
-    if (contentComp != nullptr)
+    if (contentComp != nullptr) {
         contentComp->setTopLeftPosition (viewportPosToCompPos (newPosition));
+        //updateVisibleArea();
+    }
 }
 
 void Viewport::setViewPositionProportionately (const double x, const double y)

@@ -133,10 +133,11 @@ void ResizableBorderComponent::mouseDown (const MouseEvent& e)
     updateMouseZone (e);
 
     originalBounds = component->getBounds();
+    auto position = e.getEventRelativeTo(component).getPosition();
 
     if (auto* peer = component->getPeer())
-        if (&peer->getComponent() == component)
-            peer->startHostManagedResize (peer->globalToLocal (localPointToGlobal (e.getPosition())), mouseZone);
+        if (allowHostManagedResize && component == &peer->getComponent())
+            peer->startHostManagedResize(position, mouseZone);
 
     if (constrainer != nullptr)
         constrainer->resizeStart();

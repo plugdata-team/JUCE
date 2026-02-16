@@ -170,6 +170,8 @@ public:
         //==============================================================================
         int zone = centre;
     };
+    
+    void setAllowHostManagedResize(bool shouldAllowHostManagedResize) { allowHostManagedResize = shouldAllowHostManagedResize; }
 
     /** Returns the zone in which the mouse was last seen. */
     Zone getCurrentZone() const noexcept                 { return mouseZone; }
@@ -196,6 +198,7 @@ private:
     BorderSize<int> borderSize;
     Rectangle<int> originalBounds;
     Zone mouseZone;
+    bool allowHostManagedResize = true;
 
     void updateMouseZone (const MouseEvent&);
 

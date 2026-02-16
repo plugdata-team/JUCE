@@ -248,6 +248,7 @@ private:
 
     KeyPressMappingSet& operator= (const KeyPressMappingSet&);
     JUCE_LEAK_DETECTOR (KeyPressMappingSet)
+    JUCE_DECLARE_WEAK_REFERENCEABLE(KeyPressMappingSet)
 };
 
 } // namespace juce

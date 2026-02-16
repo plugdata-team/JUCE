@@ -192,6 +192,14 @@ bool X11Symbols::loadAllSymbols()
                        makeSymbolBinding (xStringListToTextProperty,   "XStringListToTextProperty"),
                        makeSymbolBinding (xSync,                       "XSync"),
                        makeSymbolBinding (xSynchronize,                "XSynchronize"),
+                       // _NET_WM_SYNC_REQUST stuff
+                       makeSymbolBinding (xSyncCreateCounter,          "XSyncCreateCounter"),
+                       makeSymbolBinding (xSyncIntToValue,             "XSyncIntToValue"),
+                       makeSymbolBinding (xSyncIntsToValue,            "XSyncIntsToValue"),
+                       makeSymbolBinding (xSyncSetCounter,             "XSyncSetCounter"),
+
+                       makeSymbolBinding (xIfEvent,                    "XIfEvent"),
+
                        makeSymbolBinding (xTranslateCoordinates,       "XTranslateCoordinates"),
                        makeSymbolBinding (xrmUniqueQuark,              "XrmUniqueQuark"),
                        makeSymbolBinding (xUngrabPointer,              "XUngrabPointer"),
@@ -239,6 +247,16 @@ bool X11Symbols::loadAllSymbols()
                  makeSymbolBinding (xShmPutImage,                "XShmPutImage"),
                  makeSymbolBinding (xShmQueryVersion,            "XShmQueryVersion"));
    #endif
+
+   //============================ XI2 SYMBOLS ==================================
+
+    loadSymbols (xInput2,
+                 makeSymbolBinding (xGetEventData,               "XGetEventData"),
+                 makeSymbolBinding (xFreeEventData,              "XFreeEventData"),
+                 makeSymbolBinding (xiSelectEvents,              "XISelectEvents"),
+                 makeSymbolBinding (xiQueryDevice,               "XIQueryDevice"),
+                 makeSymbolBinding (xiFreeDeviceInfo,            "XIFreeDeviceInfo"),
+                 makeSymbolBinding (xiQueryVersion,              "XIQueryVersion"));
 
     return true;
 }

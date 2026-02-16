@@ -391,14 +391,14 @@ public:
         @param elementToLookFor   the value or object to look for
         @returns                  the index of the object, or -1 if it's not found
     */
-    int indexOf (ParameterType elementToLookFor) const
+    int indexOf (const ParameterType& elementToLookFor) const
     {
         const ScopedLockType lock (getLock());
         auto e = values.begin();
         auto endPtr = values.end();
 
         for (; e != endPtr; ++e)
-            if (exactlyEqual (elementToLookFor, *e))
+            if (exactlyEqual<const ParameterType&>(elementToLookFor, *e))
                 return static_cast<int> (e - values.begin());
 
         return -1;
@@ -409,14 +409,14 @@ public:
         @param elementToLookFor     the value or object to look for
         @returns                    true if the item is found
     */
-    bool contains (ParameterType elementToLookFor) const
+    bool contains (const ParameterType& elementToLookFor) const
     {
         const ScopedLockType lock (getLock());
         auto e = values.begin();
         auto endPtr = values.end();
 
         for (; e != endPtr; ++e)
-            if (exactlyEqual (elementToLookFor, *e))
+            if (exactlyEqual<const ParameterType&>(elementToLookFor, *e))
                 return true;
 
         return false;

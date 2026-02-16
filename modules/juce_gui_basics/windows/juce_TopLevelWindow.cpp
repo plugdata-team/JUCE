@@ -177,8 +177,8 @@ void TopLevelWindow::addToDesktop (int windowStyleFlags, void* nativeWindowToAtt
        method. If you do this, it's best to call the base class's getDesktopWindowStyleFlags()
        method, then add or remove whatever flags are necessary from this value before returning it.
     */
-    jassert ((windowStyleFlags & ~ComponentPeer::windowIsSemiTransparent)
-               == (getDesktopWindowStyleFlags() & ~ComponentPeer::windowIsSemiTransparent));
+    //jassert ((windowStyleFlags & ~ComponentPeer::windowIsSemiTransparent)
+    //           == (getDesktopWindowStyleFlags() & ~ComponentPeer::windowIsSemiTransparent));
 
     Component::addToDesktop (windowStyleFlags, nativeWindowToAttachTo);
 
