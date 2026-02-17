@@ -141,11 +141,14 @@ public:
           component (comp)
     {
 #if JUCE_LINUX || JUCE_BSD
+#if JUCE_WAYLAND
         if(WaylandWindowSystem::getInstance()->isWaylandAvailable()) {
             nativeContext.reset (new WaylandNativeContext (component, pixFormat, contextToShare,
                                                 c.useMultisampling, c.versionRequired));
         }
-        else {
+        else
+#endif
+        {
             nativeContext.reset (new X11NativeContext (component, pixFormat, contextToShare,
                                                 c.useMultisampling, c.versionRequired));    
         }

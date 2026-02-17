@@ -110,6 +110,8 @@ if((CMAKE_SYSTEM_NAME STREQUAL "Linux") OR (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
 
     # All browser related libs are loaded dynamically only if they are available during runtime
     _juce_create_pkgconfig_target(JUCE_BROWSER_LINUX_DEPS NOLINK ${webkit_package_name} gtk+-x11-3.0)
+
+    _juce_create_pkgconfig_target(JUCE_WAYLAND_LINUX_DEPS NOLINK wayland-client wayland-cursor xkbcommon libdecor-0 egl)
 endif()
 
 # We set up default/fallback copy dirs here. If you need different copy dirs, use
@@ -275,6 +277,11 @@ function(_juce_link_optional_libraries target)
             if(is_plugin)
                 juce_link_with_embedded_linux_subprocess(${target})
             endif()
+        endif()
+
+        get_target_property(needs_wayland ${target} JUCE_NEEDS_WAYLAND)
+        if(needs_wayland)
+            target_include_directories(${target} PUBLIC ${JUCE_WAYLAND_INCLUDE_DIRS})
         endif()
     elseif(APPLE)
         get_target_property(needs_storekit ${target} JUCE_NEEDS_STORE_KIT)
@@ -2007,6 +2014,7 @@ function(_juce_initialise_target target)
         NEEDS_WEBVIEW2                  # Set this true if you want to link WebView2 statically on Windows
         NEEDS_STORE_KIT                 # Set this true if you want in-app-purchases on Mac
         NEEDS_WINDOWS_MIDI_SERVICES     # Set this true If you want to support the newest Windows MIDI backend
+        NEEDS_WAYLAND                   # Set this to true if you want wayland support
         PUSH_NOTIFICATIONS_ENABLED
         NETWORK_MULTICAST_ENABLED
         HARDENED_RUNTIME_ENABLED

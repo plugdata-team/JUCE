@@ -122,6 +122,13 @@
  #define JUCE_USE_XCURSOR 1
 #endif
 
+/** Config: JUCE_WAYLAND
+    Enable Wayland support
+*/
+#ifndef JUCE_WAYLAND
+ #define JUCE_WAYLAND 0
+#endif
+
 /** Config: JUCE_WIN_PER_MONITOR_DPI_AWARE
     Enables per-monitor DPI awareness on Windows 8.1 and above.
 */
@@ -392,19 +399,18 @@ namespace juce
   #undef SIZEOF
   #undef KeyPress
 
-  #include <wayland-util.h>
-  #include <xkbcommon/xkbcommon.h>
-  #include <linux/input-event-codes.h>
-  
   #include "native/juce_XWindowSystem_linux.h"
   #include "native/juce_XSymbols_linux.h"
-  #include "native/juce_WaylandSymbols.h"
-  #include "native/juce_WaylandWindowSystem.h"
 
-  #include <wayland-cursor.h>
-  #include <libdecor-0/libdecor.h>
-    
-
+  #if JUCE_WAYLAND
+    #include <wayland-util.h>
+    #include <xkbcommon/xkbcommon.h>
+    #include <linux/input-event-codes.h>
+    #include "native/juce_WaylandSymbols.h"
+    #include "native/juce_WaylandWindowSystem.h"
+    #include <wayland-cursor.h>
+    #include <libdecor-0/libdecor.h>
+  #endif
  #endif
 #endif
 

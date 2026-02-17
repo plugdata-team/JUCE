@@ -289,7 +289,9 @@ JUCE_IMPL_WGL_EXTENSION_FUNCTION (wglCreateContextAttribsARB)
 #elif JUCE_LINUX || JUCE_BSD
  #include <juce_gui_basics/native/juce_ScopedWindowAssociation_linux.h>
  #include "native/juce_OpenGL_x11.h"
- #include "native/juce_OpenGL_wayland.h"
+ #if JUCE_WAYLAND
+    #include "native/juce_OpenGL_wayland.h"
+ #endif
 #elif JUCE_ANDROID
  #include "native/juce_OpenGL_android.h"
 
@@ -297,5 +299,3 @@ JUCE_IMPL_WGL_EXTENSION_FUNCTION (wglCreateContextAttribsARB)
 
 #include "opengl/juce_OpenGLContext.cpp"
 #include "utils/juce_OpenGLAppComponent.cpp"
-
-

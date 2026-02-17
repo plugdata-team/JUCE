@@ -493,5 +493,13 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (X11NativeContext)
 };
 
+#if !JUCE_WAYLAND
+bool OpenGLHelpers::isContextActive()
+{
+    XWindowSystemUtilities::ScopedXLock xLock;
+    return glXGetCurrentContext() != nullptr;
+}
+#endif
+
 } // namespace juce
 

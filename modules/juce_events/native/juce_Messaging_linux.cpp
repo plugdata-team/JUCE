@@ -35,11 +35,13 @@
 namespace juce
 {
 
+#if JUCE_WAYLAND
 namespace WaylandMessageLoop
 {
 void prepareWaylandFd();
 void processWaylandFd();
 }
+#endif
 //==============================================================================
 class InternalMessageQueue
 {
@@ -214,9 +216,13 @@ public:
     bool sleepUntilNextEvent (int timeoutMs)
     {   
         const ScopedLock sl (lock);
+#if JUCE_WAYLAND
         WaylandMessageLoop::prepareWaylandFd(); // Wayland needs to do work before and after polling!
         bool result = poll (pfds.data(), static_cast<nfds_t> (pfds.size()), timeoutMs) != 0;
         WaylandMessageLoop::processWaylandFd();
+#else
+        bool result = poll (pfds.data(), static_cast<nfds_t> (pfds.size()), timeoutMs) != 0;
+#endif
         return result;
     }
 

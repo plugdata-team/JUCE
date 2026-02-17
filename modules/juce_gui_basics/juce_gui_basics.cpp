@@ -227,7 +227,9 @@
  #include "native/juce_FileChooser_windows.cpp"
 
 #elif JUCE_LINUX || JUCE_BSD
+#if JUCE_WAYLAND
  #include "native/juce_WaylandSymbols.cpp"
+#endif
  #include "native/juce_XSymbols_linux.cpp"
  #include "native/juce_DragAndDrop_linux.cpp"
 
@@ -235,13 +237,17 @@
 
  #include "native/juce_ScopedWindowAssociation_linux.h"
  #include "native/juce_WindowUtils_linux.cpp"
+#if JUCE_WAYLAND
  #include "native/juce_Windowing_wayland.cpp"
+#endif
 
  JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wc++20-extensions")
  JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wmissing-field-initializers")
 
+#if JUCE_WAYLAND
  #include "native/juce_WaylandWindowSystem.cpp"
- 
+#endif
+
  JUCE_END_IGNORE_WARNINGS_GCC_LIKE
  JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
@@ -410,4 +416,3 @@ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wzero-as-null-pointer-constant")
 #include "windows/juce_TopLevelWindow.cpp"
 #include "windows/juce_VBlankAttachment.cpp"
 #include "windows/juce_NativeScaleFactorNotifier.cpp"
-
