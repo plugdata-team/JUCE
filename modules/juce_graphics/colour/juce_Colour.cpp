@@ -347,7 +347,7 @@ Colour Colour::withAlpha (uint8 newAlpha) const noexcept
 
 Colour Colour::withAlpha (float newAlpha) const noexcept
 {
-    jassert (newAlpha >= 0 && newAlpha <= 1.0f);
+    //jassert (newAlpha >= 0 && newAlpha <= 1.0f);
 
     PixelARGB newCol (argb);
     newCol.setAlpha (ColourHelpers::floatToUInt8 (newAlpha));

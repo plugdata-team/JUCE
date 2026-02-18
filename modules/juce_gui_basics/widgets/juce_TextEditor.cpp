@@ -1035,7 +1035,7 @@ void TextEditor::checkLayout()
         const auto textRight = std::max (viewport->getMaximumVisibleWidth(),
                                          (int) std::ceil (maxTextWidth) + leftIndent + rightEdgeSpace);
 
-        textHolder->setSize (textRight, std::max (textBottom, viewport->getHeight()));
+        textHolder->setSize (textRight, textBottom);
         viewport->setScrollBarsShown (scrollbarVisible && multiline && textBottom > viewport->getMaximumVisibleHeight(),
                                       scrollbarVisible && multiline && ! wordWrap && textRight > viewport->getMaximumVisibleWidth());
     }

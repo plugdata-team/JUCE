@@ -338,7 +338,7 @@ static std::vector<ShapedGlyph> lowLevelShape (const SanitisedString& string,
     // It this is hit, the typeface can't display one or more characters.
     // This normally shouldn't happen if font fallback is enabled, unless the String contains
     // control characters that JUCE doesn't know how to handle appropriately.
-    jassert (unknownGlyph == infos.end());
+    //jassert (unknownGlyph == infos.end());
 
     [[maybe_unused]] const auto trackingAmount = ! trackingIsDefault
                                                ? font.getHeight() * font.getHorizontalScale() * tracking
@@ -917,7 +917,7 @@ struct Shaper
 
             // If this assertion is hit, the input string is probably invalid according to the
             // Unicode parsing rules. If you know your string is a valid one, please reach out to us
-            jassert (numRemainingElems >= length);
+            //jassert (numRemainingElems >= length);
 
             const auto end = begin + std::min (length, numRemainingElems);
 

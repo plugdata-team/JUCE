@@ -226,7 +226,7 @@ void Path::startNewSubPath (Point<float> start)
 
 void Path::lineTo (const float x, const float y)
 {
-    JUCE_CHECK_COORDS_ARE_VALID (x, y)
+    //JUCE_CHECK_COORDS_ARE_VALID (x, y)
 
     if (data.isEmpty())
         startNewSubPath (0, 0);

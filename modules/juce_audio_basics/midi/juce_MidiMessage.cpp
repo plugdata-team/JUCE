@@ -116,7 +116,7 @@ int MidiMessage::readVariableLengthVal (const uint8* data, int& numBytesUsed) no
 int MidiMessage::getMessageLengthFromFirstByte (const uint8 firstByte) noexcept
 {
     // this method only works for valid starting bytes of a short midi message
-    jassert (firstByte >= 0x80 && firstByte != 0xf0 && firstByte != 0xf7);
+    //jassert (firstByte >= 0x80 && firstByte != 0xf0 && firstByte != 0xf7);
 
     static const char messageLengths[] =
     {

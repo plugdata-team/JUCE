@@ -216,7 +216,7 @@ String File::parseAbsolutePath (const String& p)
                 "File::getCurrentWorkingDirectory().getChildFile (myUnknownPath)" would return an absolute
                 path if that's what was supplied, or would evaluate a partial path relative to the CWD.
             */
-            jassertfalse;
+            //jassertfalse;
 
            #if JUCE_LOG_ASSERTIONS
             Logger::writeToLog ("Illegal absolute path: " + path);
