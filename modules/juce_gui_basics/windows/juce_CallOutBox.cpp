@@ -212,14 +212,16 @@ void CallOutBox::updatePosition (const Rectangle<int>& newAreaToPointTo, const R
     auto arrowIndent = (float) borderSpace - arrowSize;
 
     Point<float> targets[4] = { { (float) targetArea.getCentreX(), (float) targetArea.getBottom() },
+                                { (float) targetArea.getCentreX(), (float) targetArea.getY() },
                                 { (float) targetArea.getRight(),   (float) targetArea.getCentreY() },
-                                { (float) targetArea.getX(),       (float) targetArea.getCentreY() },
-                                { (float) targetArea.getCentreX(), (float) targetArea.getY() } };
+                                { (float) targetArea.getX(),       (float) targetArea.getCentreY() }
+                                };
 
     Line<float> lines[4] = { { targets[0].translated (-hwReduced, hh - arrowIndent),    targets[0].translated (hwReduced, hh - arrowIndent) },
-                             { targets[1].translated (hw - arrowIndent, -hhReduced),    targets[1].translated (hw - arrowIndent, hhReduced) },
-                             { targets[2].translated (-(hw - arrowIndent), -hhReduced), targets[2].translated (-(hw - arrowIndent), hhReduced) },
-                             { targets[3].translated (-hwReduced, -(hh - arrowIndent)), targets[3].translated (hwReduced, -(hh - arrowIndent)) } };
+                             { targets[1].translated (-hwReduced, -(hh - arrowIndent)), targets[1].translated (hwReduced, -(hh - arrowIndent)) },
+                             { targets[2].translated (hw - arrowIndent, -hhReduced),    targets[2].translated (hw - arrowIndent, hhReduced) },
+                             { targets[3].translated (-(hw - arrowIndent), -hhReduced), targets[3].translated (-(hw - arrowIndent), hhReduced) }
+                            };
 
     auto centrePointArea = newAreaToFitIn.reduced (hw, hh).toFloat();
     auto targetCentre = targetArea.getCentre().toFloat();
@@ -234,7 +236,7 @@ void CallOutBox::updatePosition (const Rectangle<int>& newAreaToPointTo, const R
         auto centre = constrainedLine.findNearestPointTo (targetCentre);
         auto distanceFromCentre = centre.getDistanceFrom (targets[i]);
 
-        if (! centrePointArea.intersects (lines[i]))
+        if (! centrePointArea.intersects (lines[i]) || i >= 2)
             distanceFromCentre += 1000.0f;
 
         if (distanceFromCentre < nearest)
