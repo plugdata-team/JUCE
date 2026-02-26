@@ -328,7 +328,7 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
                     return;
                 }
                 bool wasActivated = w->isActivated;
-                
+                    
                 int windowState;
                 if (WaylandSymbols::getInstance()->decorConfigurationGetWindowState (configuration, &windowState))
                 {
@@ -336,9 +336,19 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
                     w->isActivated = windowState & LIBDECOR_WINDOW_STATE_ACTIVE;
                     if (w->isActivated) w->isMinimised = false;
                 }
+                
+                WaylandComponentPeer::isActiveApplication = false;
+                for(auto& [surface, window] : WaylandWindowSystem::getInstance()->surfaceToWindow)
+                {
+                    if(window->isActivated)
+                    {
+                        WaylandComponentPeer::isActiveApplication = true;
+                        break;
+                    }
+                }
+                
                 if (! wasActivated && w->isActivated)
                 {
-                    //getInstance()->toFront (w, true);
                     w->peer->handleBroughtToFront();
                 }
                 
@@ -944,7 +954,11 @@ void WaylandWindowSystem::setupGlobalInput()
             auto* self = static_cast<WaylandWindowSystem*> (data);
             if (auto* window = self->findWindowBySurface (surface))
             {
-                if (! window->ignoresKeyboard) self->keyboardFocused = window;
+                if (! window->ignoresKeyboard) {
+                    WaylandComponentPeer::isActiveApplication = true;
+                    self->keyboardFocused = window;
+                    window->peer->handleFocusGain();
+                }
                 if (! self->lastFocusedWindow) self->lastFocusedWindow = (window->parentWindow || ! window->isVisible) ? self->lastFocusedWindow : window;
             }
         },
@@ -959,8 +973,10 @@ void WaylandWindowSystem::setupGlobalInput()
                     self->keyboardFocused->peer->handleKeyUpOrDown (false);
             }
             self->keyRepeater.stopTimer();
-            if (window && self->keyboardFocused == window)
+            if (window && self->keyboardFocused == window) {
                 self->keyboardFocused = nullptr;
+                window->peer->handleFocusLoss();
+            }
         },
         .key = [] (void* data, wl_keyboard*, uint32, uint32, uint32 key, uint32 state)
         {
@@ -1063,6 +1079,8 @@ void WaylandWindowSystem::setupGlobalInput()
                 if (pressed && window->parentWindow && ! window->isActivated)
                 {
                     window->isActivated = true;
+                    WaylandComponentPeer::isActiveApplication = true;
+                    
                     self->toFront (window, true);
                     window->peer->handleBroughtToFront();
                 }
