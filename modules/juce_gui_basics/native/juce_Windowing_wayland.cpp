@@ -83,8 +83,6 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     
     void setBounds (const Rectangle<int>& newBounds, bool isNowFullScreen) override
     {
-        ignoreUnused (isNowFullScreen); // What to do with this?
-        
         const auto correctedNewBounds = newBounds.withSize (jmax (1, newBounds.getWidth()),
                                                             jmax (1, newBounds.getHeight()));
         updateScaleFactor();
@@ -97,6 +95,11 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
         if (deletionChecker != nullptr)
         {
             handleMovedOrResized();
+        }
+        if(isNowFullScreen != fullscreen)
+        {
+            getComponent().resized();
+            fullscreen = isNowFullScreen;
         }
     }
     
@@ -430,6 +433,7 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
     std::unique_ptr<WaylandRepaintManager> repainter;
     Rectangle<int> bounds;
     bool isAlwaysOnTop = false;
+    bool fullscreen = false;
     double currentScaleFactor = 1.0;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaylandComponentPeer)
