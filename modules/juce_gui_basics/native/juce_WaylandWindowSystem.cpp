@@ -1026,28 +1026,32 @@ void WaylandWindowSystem::setupGlobalInput()
         .leave = [] (void* data, wl_pointer*, uint32, wl_surface* surface)
         {
             auto* self = static_cast<WaylandWindowSystem*> (data);
+
+            // Send mouse-up events for any held mouse buttons
+            if (ModifierKeys::currentModifiers.isLeftButtonDown())
+            {
+                self->updateMouseModifiers (BTN_LEFT, false);
+                if (auto* window = self->findWindowBySurface (surface))
+                  self->handleMouseEvent (window);
+            }
+            if (ModifierKeys::currentModifiers.isRightButtonDown())
+            {
+                self->updateMouseModifiers (BTN_RIGHT, false);
+                if (auto* window = self->findWindowBySurface (surface))
+                  self->handleMouseEvent (window);
+            }
+            if (ModifierKeys::currentModifiers.isMiddleButtonDown())
+            {
+                self->updateMouseModifiers (BTN_MIDDLE, false);
+                if (auto* window = self->findWindowBySurface (surface))
+                  self->handleMouseEvent (window);
+            }
+
             if (auto* window = self->findWindowBySurface (surface))
             {
                 // Clear subsurface activation state, so it can be activated again
                 if (window->parentWindow)
                     window->isActivated = false;
-
-                // Send mouse-up events for any held mouse buttons
-                if (ModifierKeys::currentModifiers.isLeftButtonDown())
-                {
-                    self->updateMouseModifiers (BTN_LEFT, false);
-                    self->handleMouseEvent (window);
-                }
-                if (ModifierKeys::currentModifiers.isRightButtonDown())
-                {
-                    self->updateMouseModifiers (BTN_RIGHT, false);
-                    self->handleMouseEvent (window);
-                }
-                if (ModifierKeys::currentModifiers.isMiddleButtonDown())
-                {
-                    self->updateMouseModifiers (BTN_MIDDLE, false);
-                    self->handleMouseEvent (window);
-                }
                 
                 // We can't track global mouse after we leave our surface, so set it to somewhere outside the window
                 self->currentMousePosition = MouseInputSource::offscreenMousePos;
