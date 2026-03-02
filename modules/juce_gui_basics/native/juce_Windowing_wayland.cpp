@@ -400,8 +400,9 @@ class WaylandComponentPeer final : public ComponentPeer, public Timer
 
     void timerCallback() override
     {
-        vBlankListeners.call ([] (auto& l) { l.onVBlank (0); });
-        
+        const auto timestampSec = Time::getMillisecondCounterHiRes() / 1000.0;
+        callVBlankListeners (timestampSec);
+
         if (repainter != nullptr)
             repainter->dispatchDeferredRepaints();
     }
