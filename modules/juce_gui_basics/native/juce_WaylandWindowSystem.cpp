@@ -328,11 +328,15 @@ WaylandWindow* WaylandWindowSystem::createWindow (bool isSubsurface, ComponentPe
                     return;
                 }
                 bool wasActivated = w->isActivated;
-                    
+
                 int windowState;
                 if (WaylandSymbols::getInstance()->decorConfigurationGetWindowState (configuration, &windowState))
                 {
-                    w->isFullscreen = windowState & LIBDECOR_WINDOW_STATE_MAXIMIZED;
+                    w->isFullscreen = windowState & (LIBDECOR_WINDOW_STATE_TILED_LEFT  |
+                                                     LIBDECOR_WINDOW_STATE_TILED_RIGHT |
+                                                     LIBDECOR_WINDOW_STATE_TILED_TOP   |
+                                                     LIBDECOR_WINDOW_STATE_TILED_BOTTOM |
+                                                     LIBDECOR_WINDOW_STATE_MAXIMIZED);
                     w->isActivated = windowState & LIBDECOR_WINDOW_STATE_ACTIVE;
                     if (w->isActivated) w->isMinimised = false;
                 }
