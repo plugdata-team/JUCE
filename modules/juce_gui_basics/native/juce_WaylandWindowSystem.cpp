@@ -534,6 +534,18 @@ void WaylandWindowSystem::destroyWindow (WaylandWindow* window)
     if (it != zOrder.end())
         zOrder.erase (it);
     
+    // In case we delete the parent window before the child window, remove it from z-order
+    // There might be more potential crashes that can be caused by deleting a parent window, but this is one of them
+    for(auto& [surface, childWindow] : surfaceToWindow)
+    {
+        if(childWindow->parentWindow == window)
+        {
+            auto it = findInZOrder (childWindow);
+            if (it != zOrder.end())
+              zOrder.erase (it);
+        }
+    }
+
     if (window->frameCallback)
         WaylandSymbols::getInstance()->callbackDestroy (window->frameCallback);
     
