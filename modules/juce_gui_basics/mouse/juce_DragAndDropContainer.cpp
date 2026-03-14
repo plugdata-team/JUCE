@@ -115,7 +115,7 @@ public:
             details.localPosition = localPosition;
 
             if (wasVisible) // fade the component and remove it - it'll be deleted later by the timer callback
-                dismissWithAnimation (finalTarget == nullptr);
+                dismissWithAnimation (false);
 
             if (auto* parent = getParentComponent())
                 parent->removeChildComponent (this);
