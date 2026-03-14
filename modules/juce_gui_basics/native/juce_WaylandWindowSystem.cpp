@@ -1043,25 +1043,27 @@ void WaylandWindowSystem::setupGlobalInput()
         {
             auto* self = static_cast<WaylandWindowSystem*> (data);
 
+            auto mods = ModifierKeys::currentModifiers;
             // Send mouse-up events for any held mouse buttons
-            if (ModifierKeys::currentModifiers.isLeftButtonDown())
+            if (mods.isLeftButtonDown())
             {
                 self->updateMouseModifiers (BTN_LEFT, false);
                 if (auto* window = self->findWindowBySurface (surface))
                   self->handleMouseEvent (window);
             }
-            if (ModifierKeys::currentModifiers.isRightButtonDown())
+            if (mods.isRightButtonDown())
             {
                 self->updateMouseModifiers (BTN_RIGHT, false);
                 if (auto* window = self->findWindowBySurface (surface))
                   self->handleMouseEvent (window);
             }
-            if (ModifierKeys::currentModifiers.isMiddleButtonDown())
+            if (mods.isMiddleButtonDown())
             {
                 self->updateMouseModifiers (BTN_MIDDLE, false);
                 if (auto* window = self->findWindowBySurface (surface))
                   self->handleMouseEvent (window);
             }
+            ModifierKeys::currentModifiers = mods;
 
             if (auto* window = self->findWindowBySurface (surface))
             {
