@@ -462,13 +462,49 @@ private:
         };
 
         allAttribs.insert (allAttribs.end(), optionalAttribs.begin(), optionalAttribs.end());
-
         allAttribs.push_back (None);
 
         int nElements = 0;
-        bestConfig = makeXFreePtr (glXChooseFBConfig (display, X11Symbols::getInstance()->xDefaultScreen (display), allAttribs.data(), &nElements));
+        auto configs = makeXFreePtr (glXChooseFBConfig (display,
+                                                       X11Symbols::getInstance()->xDefaultScreen (display),
+                                                       allAttribs.data(),
+                                                       &nElements));
 
-        return nElements != 0 && bestConfig != nullptr;
+        if (nElements == 0 || configs == nullptr)
+            return false;
+
+       #if JUCE_USE_XRENDER
+        if (format.alphaBits > 0)
+        {
+            int major = 0, minor = 0;
+
+            if (X11Symbols::getInstance()->xRenderQueryVersion (display, &major, &minor) != 0)
+            {
+                for (int i = 0; i < nElements; ++i)
+                {
+                    auto visualInfo = makeXFreePtr (glXGetVisualFromFBConfig (display, configs.get()[i]));
+
+                    if (visualInfo == nullptr || visualInfo->visual == nullptr)
+                        continue;
+
+                    auto* pictFormat = X11Symbols::getInstance()->xRenderFindVisualFormat (display, visualInfo->visual);
+
+                    if (visualInfo->depth == 32
+                        && pictFormat != nullptr
+                        && pictFormat->type == PictTypeDirect
+                        && pictFormat->direct.alphaMask != 0)
+                    {
+                        std::swap (configs.get()[0], configs.get()[i]);
+                        bestConfig = std::move (configs);
+                        return true;
+                    }
+                }
+            }
+        }
+       #endif
+
+        bestConfig = std::move (configs);
+        return true;
     }
 
     static constexpr int embeddedWindowEventMask = ExposureMask | StructureNotifyMask;
