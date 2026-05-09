@@ -1772,21 +1772,28 @@ void WaylandWindowSystem::updateCursor()
 {
     if (! cursorSurface)
     {
-        cursorTheme = WaylandSymbols::getInstance()->cursorThemeLoad ("", 24, shm);
+        cursorTheme = WaylandSymbols::getInstance()->cursorThemeLoad (nullptr, 24, shm);
+        if (cursorTheme == nullptr)
+            return;
+
         loadStandardCursors();
         cursorSurface = WaylandSymbols::getInstance()->compositorCreateSurface (compositor);
+        if (cursorSurface == nullptr)
+            return;
+
         currentCursor = createStandardMouseCursor (MouseCursor::NormalCursor);
     }
-    
+
     if (currentCursor.standardCursor == -1)
     {
         auto& image = currentCursor.cursorImage;
-        if (image->buffer)
+        if (image != nullptr && image->buffer != nullptr)
         {
             WaylandSymbols::getInstance()->surfaceAttach (cursorSurface, image->buffer, 0, 0);
             WaylandSymbols::getInstance()->surfaceDamage (cursorSurface, 0, 0, image->width, image->height);
             WaylandSymbols::getInstance()->surfaceCommit (cursorSurface);
-            WaylandSymbols::getInstance()->pointerSetCursor (globalPointer, currentMouseSerial, cursorSurface, image->hotspotX, image->hotspotY);
+            WaylandSymbols::getInstance()->pointerSetCursor (globalPointer, currentMouseSerial, cursorSurface,
+                                    image->hotspotX, image->hotspotY);
         }
     }
     else if (currentCursor.standardCursor == MouseCursor::NoCursor)
@@ -1796,13 +1803,29 @@ void WaylandWindowSystem::updateCursor()
     else if (currentCursor.standardCursor >= 0 && currentCursor.standardCursor < 20)
     {
         auto* cursor = standardCursors[currentCursor.standardCursor];
+
+        // The theme didn't have this cursor or any of its fallbacks. Try
+        // NormalCursor as a last resort before giving up.
+        if (cursor == nullptr || cursor->image_count == 0)
+            cursor = standardCursors[MouseCursor::NormalCursor];
+
+        if (cursor == nullptr || cursor->image_count == 0)
+            return;
+
         auto* cursorImage = cursor->images[0];
+        if (cursorImage == nullptr)
+            return;
+
         auto* cursorBuffer = WaylandSymbols::getInstance()->cursorImageGetBuffer (cursorImage);
-        
+        if (cursorBuffer == nullptr)
+            return;
+
         WaylandSymbols::getInstance()->surfaceAttach (cursorSurface, cursorBuffer, 0, 0);
-        WaylandSymbols::getInstance()->surfaceDamage (cursorSurface, 0, 0, (int)cursorImage->width, (int)cursorImage->height);
+        WaylandSymbols::getInstance()->surfaceDamage (cursorSurface, 0, 0,
+                             (int) cursorImage->width, (int) cursorImage->height);
         WaylandSymbols::getInstance()->surfaceCommit (cursorSurface);
-        WaylandSymbols::getInstance()->pointerSetCursor (globalPointer, currentMouseSerial, cursorSurface, (int)cursorImage->hotspot_x, (int)cursorImage->hotspot_y);
+        WaylandSymbols::getInstance()->pointerSetCursor (globalPointer, currentMouseSerial, cursorSurface,
+                                (int) cursorImage->hotspot_x, (int) cursorImage->hotspot_y);
     }
 }
 
@@ -1810,42 +1833,47 @@ void WaylandWindowSystem::loadStandardCursors()
 {
     if (! cursorTheme)
         return;
-    
-    static const std::pair<int, const char*> mappings[] = {
-        {MouseCursor::ParentCursor, "default"},
-        {MouseCursor::NoCursor, ""},
-        {MouseCursor::NormalCursor, "default"},
-        {MouseCursor::WaitCursor, "wait"},
-        {MouseCursor::IBeamCursor, "text"},
-        {MouseCursor::CrosshairCursor, "crosshair"},
-        {MouseCursor::CopyingCursor, "copy"},
-        {MouseCursor::PointingHandCursor, "pointer"},
-        {MouseCursor::DraggingHandCursor, "grab"},
-        {MouseCursor::LeftRightResizeCursor, "col-resize"},
-        {MouseCursor::UpDownResizeCursor, "row-resize"},
-        {MouseCursor::UpDownLeftRightResizeCursor, "all-scroll"},
-        {MouseCursor::TopEdgeResizeCursor, "n-resize"},
-        {MouseCursor::BottomEdgeResizeCursor, "s-resize"},
-        {MouseCursor::LeftEdgeResizeCursor, "w-resize"},
-        {MouseCursor::RightEdgeResizeCursor, "e-resize"},
-        {MouseCursor::TopLeftCornerResizeCursor, "nw-resize"},
-        {MouseCursor::TopRightCornerResizeCursor, "ne-resize"},
-        {MouseCursor::BottomLeftCornerResizeCursor, "sw-resize"},
-        {MouseCursor::BottomRightCornerResizeCursor, "se-resize"}
+
+    static const std::pair<int, std::initializer_list<const char*>> mappings[] = {
+        {MouseCursor::ParentCursor,                  {"default", "left_ptr", "arrow"}},
+        {MouseCursor::NormalCursor,                  {"default", "left_ptr", "arrow"}},
+        {MouseCursor::WaitCursor,                    {"wait", "watch"}},
+        {MouseCursor::IBeamCursor,                   {"text", "xterm"}},
+        {MouseCursor::CrosshairCursor,               {"crosshair", "cross"}},
+        {MouseCursor::CopyingCursor,                 {"copy", "dnd-copy"}},
+        {MouseCursor::PointingHandCursor,            {"pointer", "hand2", "hand1"}},
+        {MouseCursor::DraggingHandCursor,            {"grabbing", "closedhand", "grab", "openhand"}},
+        {MouseCursor::LeftRightResizeCursor,         {"ew-resize", "col-resize", "sb_h_double_arrow", "h_double_arrow"}},
+        {MouseCursor::UpDownResizeCursor,            {"ns-resize", "row-resize", "sb_v_double_arrow", "v_double_arrow"}},
+        {MouseCursor::UpDownLeftRightResizeCursor,   {"all-scroll", "fleur", "size_all", "move"}},
+        {MouseCursor::TopEdgeResizeCursor,           {"n-resize", "top_side"}},
+        {MouseCursor::BottomEdgeResizeCursor,        {"s-resize", "bottom_side"}},
+        {MouseCursor::LeftEdgeResizeCursor,          {"w-resize", "left_side"}},
+        {MouseCursor::RightEdgeResizeCursor,         {"e-resize", "right_side"}},
+        {MouseCursor::TopLeftCornerResizeCursor,     {"nw-resize", "top_left_corner"}},
+        {MouseCursor::TopRightCornerResizeCursor,    {"ne-resize", "top_right_corner"}},
+        {MouseCursor::BottomLeftCornerResizeCursor,  {"sw-resize", "bottom_left_corner"}},
+        {MouseCursor::BottomRightCornerResizeCursor, {"se-resize", "bottom_right_corner"}}
     };
-    
+
+    wl_cursor* universal = nullptr;
+    for (const char* name : { "default", "left_ptr", "arrow" })
+    {
+        universal = WaylandSymbols::getInstance()->cursorThemeGetCursor (cursorTheme, name);
+        if (universal != nullptr)
+            break;
+    }
+
     for (const auto& mapping : mappings)
     {
-        auto* cursor = WaylandSymbols::getInstance()->cursorThemeGetCursor (cursorTheme, mapping.second);
-        if (cursor)
+        wl_cursor* found = nullptr;
+        for (const char* name : mapping.second)
         {
-            standardCursors[mapping.first] = cursor;
+            found = WaylandSymbols::getInstance()->cursorThemeGetCursor (cursorTheme, name);
+            if (found != nullptr)
+                break;
         }
-        else
-        {
-            // Fallback to default cursor
-            standardCursors[mapping.first] = WaylandSymbols::getInstance()->cursorThemeGetCursor (cursorTheme, "default");
-        }
+        standardCursors[mapping.first] = (found != nullptr) ? found : universal;
     }
 }
 
