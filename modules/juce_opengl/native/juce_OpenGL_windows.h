@@ -155,20 +155,15 @@ public:
         return wglGetSwapIntervalEXT != nullptr ? wglGetSwapIntervalEXT() : 0;
     }
 
-    void updateWindowPosition()
+    void updateWindowPosition (Rectangle<int> bounds)
     {
         if (nativeWindow != nullptr)
         {
-            const auto bounds = getPhysicalBounds();
+            if (! approximatelyEqual (nativeScaleFactor, 1.0))
+                bounds = (bounds.toDouble() * nativeScaleFactor).toNearestInt();
 
-            const ScopedThreadDPIAwarenessSetter scope { nativeWindow->getNativeHandle() };
-
-            SetWindowPos ((HWND) nativeWindow->getNativeHandle(),
-                          nullptr,
-                          bounds.getX(),
-                          bounds.getY(),
-                          bounds.getWidth(),
-                          bounds.getHeight(),
+            SetWindowPos ((HWND) nativeWindow->getNativeHandle(), nullptr,
+                          bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
                           SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
         }
     }
@@ -335,7 +330,7 @@ private:
             return;
 
         nativeScaleFactor = newScaleFactor;
-        updateWindowPosition();
+        updateWindowPosition(peer->getAreaCoveredBy (*safeComponent));
     }
 
     void createNativeWindow (Component& component)
@@ -354,7 +349,7 @@ private:
         if (auto* peer = topComp->getPeer())
         {
             nativeScaleFactor = peer->getPlatformScaleFactor();
-            updateWindowPosition();
+            updateWindowPosition(peer->getAreaCoveredBy (component));
         }
 
         dc = { GetDC ((HWND) nativeWindow->getNativeHandle()),

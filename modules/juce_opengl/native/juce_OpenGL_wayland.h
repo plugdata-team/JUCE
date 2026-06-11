@@ -414,12 +414,12 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
     void updateWindowPosition (Rectangle<int> newBounds)
     {
         bounds = newBounds;
-      
+
         auto* parent = WaylandWindowSystem::getInstance()->getWaylandWindowForPeer (component.getPeer());
         int scale = jmax (1, WaylandWindowSystem::getInstance()->getScaleFactorForWindow (parent));
         int physicalWidth = bounds.getWidth() * scale;
         int physicalHeight = bounds.getHeight() * scale;
-        
+
         if (waylandEglWindow != nullptr)
         {
             WaylandEGL::wlWindowResize (waylandEglWindow,
@@ -428,7 +428,7 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
                                         0, 0);
         }
         WaylandWindowSystem::getInstance()->setBounds (embeddedWindow, bounds);
-        
+
         if (bounds.isEmpty())
         {
             WaylandEGL::eglSwapBuffers (eglDisplay, eglSurface.get());
@@ -436,7 +436,7 @@ class OpenGLContext::WaylandNativeContext : public OpenGLContext::NativeContext
             WaylandSymbols::getInstance()->surfaceCommit(waylandSurface);
         }
     }
-    
+
     bool setSwapInterval (int numFramesPerSwap)
     {
         if (numFramesPerSwap == swapFrames)

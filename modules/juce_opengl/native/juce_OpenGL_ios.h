@@ -77,7 +77,7 @@ public:
                 glLayer = (CAEAGLLayer*) [view layer];
                 glLayer.opaque = true;
 
-                updateWindowPosition();
+                updateWindowPosition(bounds);
 
                 [((UIView*) peer->getNativeHandle()) addSubview: view];
 
@@ -184,20 +184,17 @@ public:
         makeActive();
     }
 
-    void updateWindowPosition()
+    void updateWindowPosition (Rectangle<int> bounds)
     {
-        auto* peer = component.getTopLevelComponent()->getPeer();
-
-        if (peer == nullptr)
-            return;
-
-        const auto bounds = peer->getAreaCoveredBy (component);
         view.frame = convertToCGRect (bounds);
         glLayer.contentsScale = (CGFloat) (Desktop::getInstance().getDisplays().getPrimaryDisplay()->scale
                                             / component.getDesktopScaleFactor());
 
-        const auto msaaBounds = bounds * glLayer.contentsScale;
-        needToRebuildBuffers |= std::exchange (lastBounds, msaaBounds) != msaaBounds;
+        if (lastBounds != bounds)
+        {
+            lastBounds = bounds;
+            needToRebuildBuffers = true;
+        }
     }
 
     bool setSwapInterval (int numFramesPerSwap) noexcept

@@ -409,15 +409,14 @@ public:
         return component.getBounds();
     }
 
-    void updateWindowPosition()
+    void updateWindowPosition (Rectangle<int> newBounds)
     {
-        const auto physicalBounds = getPhysicalBounds();
+        bounds = newBounds;
+        auto physicalBounds = Desktop::getInstance().getDisplays().logicalToPhysical (bounds);
 
         XWindowSystemUtilities::ScopedXLock xLock;
-        X11Symbols::getInstance()->xMoveResizeWindow (display,
-                                                      embeddedWindow,
-                                                      physicalBounds.getX(),
-                                                      physicalBounds.getY(),
+        X11Symbols::getInstance()->xMoveResizeWindow (display, embeddedWindow,
+                                                      physicalBounds.getX(), physicalBounds.getY(),
                                                       (unsigned int) jmax (1, physicalBounds.getWidth()),
                                                       (unsigned int) jmax (1, physicalBounds.getHeight()));
     }

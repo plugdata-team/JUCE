@@ -155,7 +155,7 @@ public:
                              surfaceView.get());
 
         // initialise the geometry of the view
-        updateWindowPosition();
+        updateWindowPosition(component.localAreaToGlobal (component.getLocalBounds()));
         hasInitialised = true;
     }
 
@@ -228,9 +228,9 @@ public:
     GLuint getFrameBufferID() const noexcept    { return 0; }
 
     //==============================================================================
-    void updateWindowPosition()
+    void updateWindowPosition (Rectangle<int> bounds)
     {
-        const auto physical = computePhysicalBounds();
+        const auto physical = Desktop::getInstance().getDisplays().logicalToPhysical (bounds.toFloat()).toNearestInt();
 
         if (std::exchange (physicalBounds, physical) == physical)
             return;
@@ -242,7 +242,6 @@ public:
                                   (jint) physical.getRight(),
                                   (jint) physical.getBottom());
     }
-
     //==============================================================================
     // Android Surface Callbacks:
     void surfaceChanged ([[maybe_unused]] LocalRef<jobject> holder,

@@ -710,7 +710,8 @@ public:
             if (auto* c = CachedImage::get (comp))
                 c->handleResize();
 
-            context.nativeContext->updateWindowPosition();
+            if (auto* peer = comp.getTopLevelComponent()->getPeer())
+                context.nativeContext->updateWindowPosition (peer->getAreaCoveredBy (comp));
         }
     }
 
