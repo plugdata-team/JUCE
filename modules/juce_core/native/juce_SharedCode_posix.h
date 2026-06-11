@@ -181,7 +181,7 @@ inline int juce_siginterrupt ([[maybe_unused]] int sig, [[maybe_unused]] int fla
 //==============================================================================
 namespace
 {
-   #if JUCE_LINUX || (JUCE_IOS && (! TARGET_OS_MACCATALYST) && (! __DARWIN_ONLY_64_BIT_INO_T)) // (this iOS stuff is to avoid a simulator bug)
+   #if defined (__GLIBC__) || (JUCE_IOS && (! TARGET_OS_MACCATALYST) && (! __DARWIN_ONLY_64_BIT_INO_T)) // (this iOS stuff is to avoid a simulator bug)
     using juce_statStruct = struct stat64;
     #define JUCE_STAT  stat64
    #else
@@ -954,13 +954,14 @@ public:
 
     void apply ([[maybe_unused]] PosixThreadAttribute& attr) const
     {
-        #if JUCE_LINUX || JUCE_BSD
-         const struct sched_param param { getPriority() };
+       #if JUCE_LINUX || JUCE_BSD
+        struct sched_param param{};
+        param.sched_priority = getPriority();
 
-         pthread_attr_setinheritsched (attr.get(), PTHREAD_EXPLICIT_SCHED);
-         pthread_attr_setschedpolicy (attr.get(), getScheduler());
-         pthread_attr_setschedparam (attr.get(), &param);
-        #endif
+        pthread_attr_setinheritsched (attr.get(), PTHREAD_EXPLICIT_SCHED);
+        pthread_attr_setschedpolicy (attr.get(), getScheduler());
+        pthread_attr_setschedparam (attr.get(), &param);
+       #endif
     }
 
     constexpr int getScheduler() const { return scheduler; }
@@ -1073,7 +1074,7 @@ void JUCE_CALLTYPE Thread::setCurrentThreadAffinityMask ([[maybe_unused]] uint32
 bool DynamicLibrary::open (const String& name)
 {
     close();
-    handle = dlopen (name.isEmpty() ? nullptr : name.toUTF8().getAddress(), RTLD_LOCAL | RTLD_NOW);
+    handle = dlopen (name.isEmpty() ? nullptr : name.toRawUTF8(), RTLD_LOCAL | RTLD_NOW);
     return handle != nullptr;
 }
 

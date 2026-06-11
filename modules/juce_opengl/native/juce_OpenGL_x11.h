@@ -87,8 +87,8 @@ class OpenGLContext::NativeContext
     public:
     struct DummyComponent  : public Component
     {
-        DummyComponent (OpenGLContext::NativeContext& nativeParentContext)
-        : native (nativeParentContext)
+        explicit DummyComponent (NativeContext& nativeParentContext)
+            : native (nativeParentContext)
         {
         }
         
@@ -98,8 +98,7 @@ class OpenGLContext::NativeContext
             //if (commandId == 0)
             //    native.component.handleCommandMessage(0);
         }
-        
-        OpenGLContext::NativeContext& native;
+        NativeContext& native;
     };
     
     
@@ -149,7 +148,7 @@ private:
 
         ScopedGLXObject() = default;
 
-        explicit ScopedGLXObject (Type obj, ::Display* d)
+        ScopedGLXObject (Type obj, ::Display* d)
             : object (obj), display (d) {}
 
         ScopedGLXObject (ScopedGLXObject&& other) noexcept
@@ -255,14 +254,14 @@ public:
         swa.border_pixel = 0;
         swa.event_mask = embeddedWindowEventMask;
 
-        auto glBounds = component.getTopLevelComponent()->getLocalArea (&component, component.getLocalBounds());
+        const auto physicalBounds = getPhysicalBounds();
 
-        glBounds = Desktop::getInstance().getDisplays().logicalToPhysical (glBounds);
-
-        embeddedWindow = X11Symbols::getInstance()->xCreateWindow (display, windowH,
-                                                                   glBounds.getX(), glBounds.getY(),
-                                                                   (unsigned int) jmax (1, glBounds.getWidth()),
-                                                                   (unsigned int) jmax (1, glBounds.getHeight()),
+        embeddedWindow = X11Symbols::getInstance()->xCreateWindow (display,
+                                                                   windowH,
+                                                                   physicalBounds.getX(),
+                                                                   physicalBounds.getY(),
+                                                                   (unsigned int) jmax (1, physicalBounds.getWidth()),
+                                                                   (unsigned int) jmax (1, physicalBounds.getHeight()),
                                                                    0, visual->depth,
                                                                    InputOutput,
                                                                    visual->visual,
@@ -312,11 +311,11 @@ public:
         {
             switch (c.versionRequired)
             {
-                case OpenGLVersion::openGL3_2: return Version { 3, 2 };
-                case OpenGLVersion::openGL4_1: return Version { 4, 1 };
-                case OpenGLVersion::openGL4_3: return Version { 4, 3 };
+                case openGL3_2: return Version { 3, 2 };
+                case openGL4_1: return Version { 4, 1 };
+                case openGL4_3: return Version { 4, 3 };
 
-                case OpenGLVersion::defaultGLVersion: break;
+                case defaultGLVersion: break;
             }
 
             return {};
@@ -398,14 +397,27 @@ public:
         glXSwapBuffers (display, glxWindow.get());
     }
 
-    void updateWindowPosition (Rectangle<int> newBounds)
+    Rectangle<int> getPhysicalBounds() const
     {
-        bounds = newBounds;
-        auto physicalBounds = Desktop::getInstance().getDisplays().logicalToPhysical (bounds);
+        if (auto* peer = component.getPeer())
+        {
+            const auto peerBounds = peer->getAreaCoveredBy (component);
+            const auto physicalBounds = peerBounds.toDouble() * peer->getPlatformScaleFactor();
+            return physicalBounds.toNearestInt();
+        }
+
+        return component.getBounds();
+    }
+
+    void updateWindowPosition()
+    {
+        const auto physicalBounds = getPhysicalBounds();
 
         XWindowSystemUtilities::ScopedXLock xLock;
-        X11Symbols::getInstance()->xMoveResizeWindow (display, embeddedWindow,
-                                                      physicalBounds.getX(), physicalBounds.getY(),
+        X11Symbols::getInstance()->xMoveResizeWindow (display,
+                                                      embeddedWindow,
+                                                      physicalBounds.getX(),
+                                                      physicalBounds.getY(),
                                                       (unsigned int) jmax (1, physicalBounds.getWidth()),
                                                       (unsigned int) jmax (1, physicalBounds.getHeight()));
     }
@@ -517,7 +529,6 @@ private:
     std::optional<PeerListener> peerListener;
 
     int swapFrames = 0;
-    Rectangle<int> bounds;
     std::unique_ptr<GLXFBConfig, XFreeDeleter> bestConfig;
     void* contextToShareWith;
 

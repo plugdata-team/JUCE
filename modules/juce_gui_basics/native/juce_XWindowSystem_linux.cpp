@@ -1807,7 +1807,7 @@ void XWindowSystem::setVisible (::Window windowH, bool shouldBeVisible) const
         X11Symbols::getInstance()->xUnmapWindow (display, windowH);
 }
 
-void XWindowSystem::setBounds (::Window windowH, Rectangle<int> newBounds, bool isFullScreen) const
+std::optional<unsigned long> XWindowSystem::setBounds (::Window windowH, Rectangle<int> newBounds, bool isFullScreen) const
 {
     jassert (windowH != 0);
 
@@ -1855,20 +1855,24 @@ void XWindowSystem::setBounds (::Window windowH, Rectangle<int> newBounds, bool 
             X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, hints.get());
         }
 
-        const auto nativeWindowBorder = [&]() -> BorderSize<int>
+        const auto nativeWindowBorder = std::invoke ([&]() -> BorderSize<int>
         {
             if (const auto& frameSize = peer->getFrameSizeIfPresent())
                 return frameSize->multipliedBy (peer->getPlatformScaleFactor());
 
             return {};
-        }();
+        });
 
+        const auto serial = X11Symbols::getInstance()->xNextRequest (display);
         X11Symbols::getInstance()->xMoveResizeWindow (display, windowH,
                                                       newBounds.getX() - nativeWindowBorder.getLeft(),
                                                       newBounds.getY() - nativeWindowBorder.getTop(),
                                                       (unsigned int) newBounds.getWidth(),
                                                       (unsigned int) newBounds.getHeight());
+        return serial;
     }
+
+    return std::nullopt;
 }
 
 void XWindowSystem::startHostManagedResize (::Window windowH,
@@ -1944,36 +1948,40 @@ void XWindowSystem::updateConstraints (::Window windowH, bool isHostManaged) con
         updateConstraints (windowH, *peer, isHostManaged);
 }
 
-void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer, bool isHostManaged) const
+void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer) const
 {
     XWindowSystemUtilities::ScopedXLock xLock;
-    XSizeHints hints;
-    // JUCE doesn't set windowIsResizable flag for non-native windows, but for X11 we can bypass this check when it's host managed resizing?
-    if (((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0) && !isHostManaged)
-    {
-        hints.min_width  = hints.max_width  = peer.getBounds().getWidth();
-        hints.min_height = hints.max_height = peer.getBounds().getHeight();
-        hints.flags = PMinSize | PMaxSize;
-    }
-    else if (auto* c = peer.getConstrainer())
-    {
-        const auto windowBorder = [&]() -> BorderSize<int> {
-            if (const auto& frameSize = peer.getFrameSizeIfPresent())
-                return *frameSize;
 
-            return {};
-        }();
+    if (auto hints = makeXFreePtr (X11Symbols::getInstance()->xAllocSizeHints()))
+    {
+        if ((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0)
+        {
+            hints->min_width  = hints->max_width  = (int) (peer.getPlatformScaleFactor() * peer.getBounds().getWidth());
+            hints->min_height = hints->max_height = (int) (peer.getPlatformScaleFactor() * peer.getBounds().getHeight());
+            hints->flags = PMinSize | PMaxSize;
+        }
+        else if (auto* c = peer.getConstrainer())
+        {
+            const auto windowBorder = [&]() -> BorderSize<int>
+            {
+                if (const auto& frameSize = peer.getFrameSizeIfPresent())
+                    return *frameSize;
 
-        const auto factor       = peer.getPlatformScaleFactor() * Desktop::getInstance().getGlobalScaleFactor();
-        const auto leftAndRight = windowBorder.getLeftAndRight();
-        const auto topAndBottom = windowBorder.getTopAndBottom();
-        hints.min_width  = jmax (1, (int) (factor * c->getMinimumWidth())  - leftAndRight);
-        hints.max_width  = jmax (1, (int) (factor * c->getMaximumWidth())  - leftAndRight);
-        hints.min_height = jmax (1, (int) (factor * c->getMinimumHeight()) - topAndBottom);
-        hints.max_height = jmax (1, (int) (factor * c->getMaximumHeight()) - topAndBottom);
-        hints.flags = PMinSize | PMaxSize;
+                return {};
+            }();
+
+            const auto factor       = peer.getPlatformScaleFactor();
+            const auto leftAndRight = windowBorder.getLeftAndRight();
+            const auto topAndBottom = windowBorder.getTopAndBottom();
+            hints->min_width  = jmax (1, (int) (factor * c->getMinimumWidth())  - leftAndRight);
+            hints->max_width  = jmax (1, (int) (factor * c->getMaximumWidth())  - leftAndRight);
+            hints->min_height = jmax (1, (int) (factor * c->getMinimumHeight()) - topAndBottom);
+            hints->max_height = jmax (1, (int) (factor * c->getMaximumHeight()) - topAndBottom);
+            hints->flags = PMinSize | PMaxSize;
+        }
+
+        X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, hints.get());
     }
-    X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, &hints);
 }
 
 bool XWindowSystem::contains (::Window windowH, Point<int> localPos) const
@@ -2708,11 +2716,12 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
                                                                     [] (XRRCrtcInfo* ci) { X11Symbols::getInstance()->xRRFreeCrtcInfo (ci); }))
                                     {
                                         Displays::Display d;
-                                        d.totalArea = { crtc->x, crtc->y, (int) crtc->width, (int) crtc->height };
+                                        d.physicalBounds = { crtc->x, crtc->y, (int) crtc->width, (int) crtc->height };
+                                        d.logicalBounds = d.physicalBounds.toFloat();
                                         d.isMain = (mainDisplay == screens->outputs[j]) && (i == 0);
                                         d.dpi = DisplayHelpers::getDisplayDPI (display, 0);
 
-                                        d.verticalFrequencyHz = [&]() -> std::optional<double>
+                                        d.verticalFrequencyHz = std::invoke ([&]() -> std::optional<double>
                                         {
                                             if (crtc->mode != None)
                                             {
@@ -2726,7 +2735,7 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
                                             }
 
                                             return {};
-                                        }();
+                                        });
 
                                         // The raspberry pi returns a zero sized display, so we need to guard for divide-by-zero
                                         if (output->mm_width > 0 && output->mm_height > 0)
@@ -2734,7 +2743,7 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
                                                   + ((static_cast<double> (crtc->height) * 25.4 * 0.5) / static_cast<double> (output->mm_height));
 
                                         auto scale = DisplayHelpers::getDisplayScale (output->name, d.dpi);
-                                        scale = (scale <= 0.1 || ! JUCEApplicationBase::isStandaloneApp()) ? 1.0 : scale;
+                                        scale = scale <= 0.1 ? 1.0 : scale;
 
                                         d.scale = masterScale * scale;
 
@@ -2769,8 +2778,8 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
                 if (screens[j].screen_number == index)
                 {
                     Displays::Display d;
-                    d.totalArea = { screens[j].x_org, screens[j].y_org,
-                                    screens[j].width, screens[j].height };
+                    d.physicalBounds = { screens[j].x_org, screens[j].y_org, screens[j].width, screens[j].height };
+                    d.logicalBounds = d.physicalBounds.toFloat();
                     d.isMain = (index == 0);
                     d.scale = masterScale;
                     d.dpi = DisplayHelpers::getDisplayDPI (display, 0); // (all screens share the same DPI)
@@ -2800,7 +2809,8 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
                 {
                     Displays::Display d;
 
-                    d.totalArea = workArea;
+                    d.physicalBounds = workArea;
+                    d.logicalBounds = d.physicalBounds.toFloat();
                     d.isMain = displays.isEmpty();
                     d.scale = masterScale;
                     d.dpi = DisplayHelpers::getDisplayDPI (display, i);
@@ -2813,8 +2823,9 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
         if (displays.isEmpty())
         {
             Displays::Display d;
-            d.totalArea = { X11Symbols::getInstance()->xDisplayWidth  (display, X11Symbols::getInstance()->xDefaultScreen (display)),
-                            X11Symbols::getInstance()->xDisplayHeight (display, X11Symbols::getInstance()->xDefaultScreen (display)) };
+            d.physicalBounds = { X11Symbols::getInstance()->xDisplayWidth  (display, X11Symbols::getInstance()->xDefaultScreen (display)),
+                                 X11Symbols::getInstance()->xDisplayHeight (display, X11Symbols::getInstance()->xDefaultScreen (display)) };
+            d.logicalBounds = d.physicalBounds.toFloat();
             d.isMain = true;
             d.scale = masterScale;
             d.dpi = DisplayHelpers::getDisplayDPI (display, 0);
@@ -2824,7 +2835,7 @@ Array<Displays::Display> XWindowSystem::findDisplays (float masterScale) const
     }
 
     for (auto& d : displays)
-        d.userArea = d.totalArea; // JUCE currently does not support requesting the user area on Linux
+        d.userBounds = d.logicalBounds; // JUCE currently does not support requesting the user area on Linux
 
     return displays;
 }
@@ -3889,6 +3900,11 @@ void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer) const
 
 void XWindowSystem::handleConfigureNotifyEvent (LinuxComponentPeer* peer, XConfigureEvent& confEvent) const
 {
+    // If the incoming event serial is smaller than the serial of a move/resize request we sent previously,
+    // then we should ignore the incoming event because it will conflict with the pending request.
+    if (confEvent.serial < peer->getMoveResizeSerial())
+        return;
+
     const ScopedValueSetter<bool> scope { peer->inConfigureNotifyHandler, true };
 
     peer->updateWindowBounds();
