@@ -330,7 +330,11 @@ private:
             return;
 
         nativeScaleFactor = newScaleFactor;
-        updateWindowPosition(peer->getAreaCoveredBy (*safeComponent));
+        if (auto* peer = safeComponent->getTopLevelComponent()->getPeer())
+        {
+            nativeScaleFactor = newScaleFactor;
+            updateWindowPosition (peer->getAreaCoveredBy (*safeComponent));
+        }
     }
 
     void createNativeWindow (Component& component)

@@ -411,8 +411,7 @@ public:
 
     void updateWindowPosition (Rectangle<int> newBounds)
     {
-        bounds = newBounds;
-        auto physicalBounds = Desktop::getInstance().getDisplays().logicalToPhysical (bounds);
+        auto physicalBounds = Desktop::getInstance().getDisplays().logicalToPhysical (newBounds);
 
         XWindowSystemUtilities::ScopedXLock xLock;
         X11Symbols::getInstance()->xMoveResizeWindow (display, embeddedWindow,

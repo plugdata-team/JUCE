@@ -1948,13 +1948,13 @@ void XWindowSystem::updateConstraints (::Window windowH, bool isHostManaged) con
         updateConstraints (windowH, *peer, isHostManaged);
 }
 
-void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer) const
+void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer, bool isHostManaged) const
 {
     XWindowSystemUtilities::ScopedXLock xLock;
 
     if (auto hints = makeXFreePtr (X11Symbols::getInstance()->xAllocSizeHints()))
     {
-        if ((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0)
+        if (((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0) && !isHostManaged)
         {
             hints->min_width  = hints->max_width  = (int) (peer.getPlatformScaleFactor() * peer.getBounds().getWidth());
             hints->min_height = hints->max_height = (int) (peer.getPlatformScaleFactor() * peer.getBounds().getHeight());
