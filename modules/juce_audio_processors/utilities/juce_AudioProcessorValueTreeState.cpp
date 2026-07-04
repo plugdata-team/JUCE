@@ -436,7 +436,8 @@ void AudioProcessorValueTreeState::updateParameterConnectionsToChildTrees()
         }
     }
 
-    flushParameterValuesToValueTree();
+    // reconciliation writes during a whole-state replace are not user actions — record nothing
+    flushParameterValuesToValueTree (nullptr);
 }
 
 void AudioProcessorValueTreeState::valueTreePropertyChanged (ValueTree& tree, const Identifier&)
@@ -459,12 +460,17 @@ void AudioProcessorValueTreeState::valueTreeRedirected (ValueTree& v)
 
 bool AudioProcessorValueTreeState::flushParameterValuesToValueTree()
 {
+    return flushParameterValuesToValueTree (undoManager);
+}
+
+bool AudioProcessorValueTreeState::flushParameterValuesToValueTree (UndoManager* undoManagerToUse)
+{
     ScopedLock lock (valueTreeChanging);
 
     bool anyUpdated = false;
 
     for (auto& p : adapterTable)
-        anyUpdated |= p.second->flushToTree (valuePropertyID, undoManager);
+        anyUpdated |= p.second->flushToTree (valuePropertyID, undoManagerToUse);
 
     return anyUpdated;
 }
