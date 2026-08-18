@@ -174,6 +174,11 @@ public:
     /** Returns the zone in which the mouse was last seen. */
     Zone getCurrentZone() const noexcept                 { return mouseZone; }
 
+    /** Enables or disables host-managed (window-system) resizing when this resizer is
+        attached directly to a peer's top-level component. Defaults to true.
+    */
+    void setAllowHostManagedResize (bool shouldAllow) noexcept   { allowHostManagedResize = shouldAllow; }
+
 protected:
     /** @internal */
     void paint (Graphics&) override;
@@ -196,6 +201,7 @@ private:
     BorderSize<int> borderSize;
     Rectangle<int> originalBounds;
     Zone mouseZone;
+    bool allowHostManagedResize = true;
 
     void updateMouseZone (const MouseEvent&);
 

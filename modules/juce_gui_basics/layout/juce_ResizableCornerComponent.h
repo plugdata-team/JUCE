@@ -75,6 +75,10 @@ public:
     /** Destructor. */
     ~ResizableCornerComponent() override;
 
+    /** Enables or disables host-managed (window-system) resizing when this resizer is
+        attached directly to a peer's top-level component. Defaults to true.
+    */
+    void setAllowHostManagedResize (bool shouldAllow) noexcept   { allowHostManagedResize = shouldAllow; }
 
 protected:
     //==============================================================================
@@ -94,6 +98,7 @@ private:
     WeakReference<Component> component;
     ComponentBoundsConstrainer* constrainer;
     Rectangle<int> originalBounds;
+    bool allowHostManagedResize = true;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ResizableCornerComponent)
 };

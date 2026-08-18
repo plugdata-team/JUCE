@@ -229,6 +229,21 @@ void AttributedString::clear()
     attributes.clear();
 }
 
+void AttributedString::eraseEnd (int from)
+{
+    text = text.substring (0, from);
+
+    for (int i = attributes.size(); --i >= 0;)
+    {
+        auto& attribute = attributes.getReference (i);
+
+        if (attribute.range.getStart() >= from)
+            attributes.remove (i);
+        else if (attribute.range.getEnd() > from)
+            attribute.range.setEnd (from);
+    }
+}
+
 void AttributedString::setJustification (Justification newJustification) noexcept
 {
     justification = newJustification;

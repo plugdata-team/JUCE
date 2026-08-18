@@ -81,6 +81,13 @@ public:
     void startDraggingComponent (Component* componentToDrag,
                                  const MouseEvent& e);
 
+    /** If the target component's bounds change during a drag, call this to update the
+        stored mouse-down position so that subsequent dragComponent() calls stay correct.
+
+        @param positionWithinTarget     the new mouse-down position, relative to the target
+    */
+    void updateMouseDownPosition (Point<int> positionWithinTarget);
+
     /** Call this from your mouseDrag() callback to move the component.
 
         This will move the component, using the given constrainer object to check

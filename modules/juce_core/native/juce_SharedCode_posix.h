@@ -32,6 +32,12 @@
   ==============================================================================
 */
 
+#if JUCE_LINUX
+ #include <pty.h>
+#else // macOS, iOS, BSD
+ #include <util.h>
+#endif
+
 namespace juce
 {
 
@@ -1115,6 +1121,51 @@ public:
         jassert (File::getCurrentWorkingDirectory().getChildFile (exe).existsAsFile()
                   || ! exe.containsChar (File::getSeparatorChar()));
 
+        usingTty = (streamFlags & wantTtyOut) != 0;
+
+        if (usingTty)
+        {
+            // Use a pseudo-TTY so that the child process produces coloured output
+            int masterFd = -1;
+
+            auto result = forkpty (&masterFd, nullptr, nullptr, nullptr);
+
+            if (result < 0)
+            {
+                // fork failed
+                if (masterFd >= 0)
+                    close (masterFd);
+            }
+            else if (result == 0)
+            {
+                // we're the child process
+                if ((streamFlags & wantStdOut) == 0)
+                    dup2 (open ("/dev/null", O_WRONLY), STDOUT_FILENO);
+
+                if ((streamFlags & wantStdErr) == 0)
+                    dup2 (open ("/dev/null", O_WRONLY), STDERR_FILENO);
+
+                Array<char*> argv;
+
+                for (auto& arg : arguments)
+                    if (arg.isNotEmpty())
+                        argv.add (const_cast<char*> (arg.toRawUTF8()));
+
+                argv.add (nullptr);
+
+                execvp (exe.toRawUTF8(), argv.getRawDataPointer());
+                _exit (-1);
+            }
+            else
+            {
+                // we're the parent process
+                childPID = result;
+                pipeHandle = masterFd;
+            }
+
+            return;
+        }
+
         int pipeHandles[2] = {};
 
         if (pipe (pipeHandles) == 0)
@@ -1197,6 +1248,24 @@ public:
     {
         jassert (dest != nullptr && numBytes > 0);
 
+        if (usingTty)
+        {
+            // a pseudo-TTY has no buffered FILE* wrapper, so read from it directly
+            for (;;)
+            {
+                auto numBytesRead = (int) ::read (pipeHandle, dest, (size_t) numBytes);
+
+                if (numBytesRead >= 0)
+                    return numBytesRead;
+
+                // signal occurred during read() so try again
+                if (errno == EINTR)
+                    continue;
+
+                return 0;
+            }
+        }
+
         #ifdef fdopen
          #error // some crazy 3rd party headers (e.g. zlib) define this function as NULL!
         #endif
@@ -1253,6 +1322,7 @@ public:
     int pipeHandle = 0;
     int exitCode = -1;
     FILE* readHandle = {};
+    bool usingTty = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ActiveProcess)
 };

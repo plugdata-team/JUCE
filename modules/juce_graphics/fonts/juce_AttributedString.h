@@ -97,6 +97,9 @@ public:
     */
     void clear();
 
+    /** Erases the text and attributes from the given index up to the end of the string. */
+    void eraseEnd (int from);
+
     //==============================================================================
     /** Draws this string within the given area.
         The layout of the string within the rectangle is controlled by the justification
