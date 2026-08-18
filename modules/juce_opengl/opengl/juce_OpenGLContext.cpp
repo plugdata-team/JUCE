@@ -1542,6 +1542,20 @@ OpenGLContext::CachedImage* OpenGLContext::getCachedImage() const noexcept
     return nullptr;
 }
 
+void OpenGLContext::initialiseOnThread()
+{
+    if (auto* c = getCachedImage())
+    {
+        if ((c->state.load() & CachedImage::initialised) != 0)
+            return;
+
+        CachedImage::ScopedContextActivator activator;
+
+        if (c->initialiseOnThread (activator) == InitResult::success)
+            c->state |= CachedImage::initialised;
+    }
+}
+
 bool OpenGLContext::areShadersAvailable() const
 {
     auto* c = getCachedImage();

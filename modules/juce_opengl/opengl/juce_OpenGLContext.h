@@ -150,6 +150,11 @@ public:
     */
     bool isAttached() const noexcept;
 
+    /** Initialises this context on the calling thread.
+        This is intended for hosts that drive rendering from their own thread.
+    */
+    void initialiseOnThread();
+
     /** Returns the component to which this context is currently attached, or nullptr. */
     Component* getTargetComponent() const noexcept;
 
