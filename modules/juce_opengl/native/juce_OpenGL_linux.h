@@ -218,6 +218,7 @@ public:
         XSetWindowAttributes swa;
         swa.colormap = colourMap;
         swa.border_pixel = 0;
+        swa.background_pixmap = None;
         swa.event_mask = embeddedWindowEventMask;
 
         const auto physicalBounds = getPhysicalBounds();
@@ -232,7 +233,7 @@ public:
                                                                    depth,
                                                                    InputOutput,
                                                                    visual,
-                                                                   CWBorderPixel | CWColormap | CWEventMask,
+                                                                   CWBorderPixel | CWColormap | CWBackPixmap | CWEventMask,
                                                                    &swa);
 
         peerListener.emplace (component, embeddedWindow);
@@ -388,6 +389,40 @@ public:
     void removeListener (NativeContextListener&) {}
 
 private:
+
+    bool configUsesSuitableWindowVisual (EGLConfig config) const
+    {
+        EGLint alphaSize = 0;
+
+        if (! eglGetConfigAttrib (eglDisplay, config, EGL_ALPHA_SIZE, &alphaSize) || alphaSize <= 0)
+            return false;
+
+        EGLint nativeVisualId = 0;
+
+        if (! eglGetConfigAttrib (eglDisplay, config, EGL_NATIVE_VISUAL_ID, &nativeVisualId) || nativeVisualId == 0)
+            return false;
+
+        XVisualInfo visualInfo {};
+        visualInfo.visualid = (VisualID) nativeVisualId;
+        int numVisuals = 0;
+        auto xVisualInfo = makeXFreePtr (X11Symbols::getInstance()->xGetVisualInfo (display,
+                                                                                    VisualIDMask,
+                                                                                    &visualInfo,
+                                                                                    &numVisuals));
+
+        if (xVisualInfo == nullptr || numVisuals <= 0 || xVisualInfo->depth != 32)
+            return false;
+
+       #if JUCE_USE_XRENDER
+        if (auto* pictVisualFormat = X11Symbols::getInstance()->xRenderFindVisualFormat (display, xVisualInfo->visual))
+            return pictVisualFormat->type == PictTypeDirect && pictVisualFormat->direct.alphaMask != 0;
+
+        return false;
+       #else
+        return true;
+       #endif
+    }
+
     bool tryChooseConfig (const OpenGLPixelFormat& format, Span<const EGLint> optionalAttribs)
     {
         std::vector<EGLint> allAttribs
@@ -407,7 +442,26 @@ private:
         allAttribs.push_back (EGL_NONE);
 
         EGLint numConfigs = 0;
-        return eglChooseConfig (eglDisplay, allAttribs.data(), &eglConfig, 1, &numConfigs) && numConfigs > 0;
+         if (! eglChooseConfig (eglDisplay, allAttribs.data(), nullptr, 0, &numConfigs) || numConfigs <= 0)
+            return false;
+
+        std::vector<EGLConfig> configs ((size_t) numConfigs);
+
+        if (! eglChooseConfig (eglDisplay, allAttribs.data(), configs.data(), numConfigs, &numConfigs))
+            return false;
+
+        configs.resize ((size_t) numConfigs);
+
+        for (auto config : configs)
+        {
+            if (configUsesSuitableWindowVisual (config))
+            {
+                eglConfig = config;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static constexpr int embeddedWindowEventMask = ExposureMask | StructureNotifyMask;
