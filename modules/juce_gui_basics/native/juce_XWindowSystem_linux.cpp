@@ -4088,7 +4088,7 @@ void XWindowSystem::handleClientMessageEvent (LinuxComponentPeer* peer, XClientM
 
             clientMsg.window = root;
 
-            X11Symbols::getInstance()->xSendEvent (display, root, False, NoEventMask, &event);
+            X11Symbols::getInstance()->xSendEvent (display, root, False, SubstructureNotifyMask | SubstructureRedirectMask, &event);
             X11Symbols::getInstance()->xFlush (display);
         }
         else if (atom == atoms.protocolList [XWindowSystemUtilities::Atoms::TAKE_FOCUS])
