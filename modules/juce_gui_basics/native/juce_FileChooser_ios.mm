@@ -175,12 +175,10 @@ private:
             return [[FileChooserControllerClass alloc] initForExportingURLs: @[url] asCopy: currentFileOrDirectory.existsAsFile()];
         }
 
-        static FileChooserControllerClass* oldFn (NSURL* url, const File& currentFileOrDirectory)
+        static FileChooserControllerClass* oldFn (NSURL* url, const File&)
         {
             JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
-            const auto pickerMode = currentFileOrDirectory.existsAsFile()
-                                  ? UIDocumentPickerModeExportToService
-                                  : UIDocumentPickerModeMoveToService;
+            const auto pickerMode = UIDocumentPickerModeExportToService;
             return [[FileChooserControllerClass alloc] initWithURL: url inMode: pickerMode];
             JUCE_END_IGNORE_WARNINGS_GCC_LIKE
         }

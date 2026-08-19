@@ -85,11 +85,10 @@ LookAndFeel::~LookAndFeel()
 //==============================================================================
 Colour LookAndFeel::findColour (int colourID) const noexcept
 {
-    const ColourSetting c = { colourID, Colour() };
-    auto index = colours.indexOf (c);
+    const auto it = colours.find (colourID);
 
-    if (index >= 0)
-        return colours[index].colour;
+    if (it != colours.end())
+        return it->second;
 
     jassertfalse;
     return Colours::black;
@@ -97,19 +96,12 @@ Colour LookAndFeel::findColour (int colourID) const noexcept
 
 void LookAndFeel::setColour (int colourID, Colour newColour) noexcept
 {
-    const ColourSetting c = { colourID, newColour };
-    auto index = colours.indexOf (c);
-
-    if (index >= 0)
-        colours.getReference (index).colour = newColour;
-    else
-        colours.add (c);
+    colours[colourID] = newColour;
 }
 
 bool LookAndFeel::isColourSpecified (const int colourID) const noexcept
 {
-    const ColourSetting c = { colourID, Colour() };
-    return colours.contains (c);
+    return colours.find (colourID) != colours.end();
 }
 
 //==============================================================================

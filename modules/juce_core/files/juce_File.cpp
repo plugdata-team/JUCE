@@ -990,7 +990,7 @@ bool File::createSymbolicLink (const File& linkFileToCreate,
             linkFileToCreate.deleteFile();
     }
 
-   #if JUCE_MAC || JUCE_LINUX || JUCE_BSD
+   #if JUCE_MAC || JUCE_LINUX || JUCE_BSD || JUCE_IOS
     // one common reason for getting an error here is that the file already exists
     if (symlink (nativePathOfTarget.toRawUTF8(), linkFileToCreate.getFullPathName().toRawUTF8()) == -1)
     {

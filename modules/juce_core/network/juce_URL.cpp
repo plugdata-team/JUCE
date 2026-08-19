@@ -709,6 +709,30 @@ private:
             jassertfalse;
     }
 };
+
+String URL::getBookmarkData() const
+{
+    if (bookmark == nullptr)
+        return {};
+
+    NSData* data = (__bridge NSData*) bookmark->data;
+    return Base64::toBase64 ([data bytes], (int) [data length]);
+}
+
+void URL::setBookmarkData (const String& base64)
+{
+    if (base64.isEmpty())
+        return;
+
+    MemoryBlock mb;
+    MemoryOutputStream decoded (mb, false);
+
+    if (Base64::convertFromBase64 (decoded, base64))
+    {
+        NSData* data = [[NSData dataWithBytes: mb.getData() length: mb.getSize()] retain];
+        bookmark = new URL::Bookmark ((void*) data);
+    }
+}
 #endif
 //==============================================================================
 template <typename Member, typename Item>

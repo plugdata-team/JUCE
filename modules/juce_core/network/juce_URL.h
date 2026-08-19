@@ -683,6 +683,18 @@ public:
     */
     static URL createWithoutParsing (const String& url);
 
+   #if JUCE_IOS
+    /** iOS only: serialises this URL's security-scoped bookmark to a Base64 string,
+        so it can be persisted and later restored with setBookmarkData().
+    */
+    String getBookmarkData() const;
+
+    /** iOS only: restores a security-scoped bookmark from a Base64 string that was
+        previously produced by getBookmarkData().
+    */
+    void setBookmarkData (const String& base64);
+   #endif
+
     //==============================================================================
     /** @cond */
     using OpenStreamProgressCallback = bool (void* context, int bytesSent, int totalBytes);
