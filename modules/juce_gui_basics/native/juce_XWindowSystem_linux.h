@@ -80,7 +80,8 @@ namespace XWindowSystemUtilities
         {
             TAKE_FOCUS = 0,
             DELETE_WINDOW = 1,
-            PING = 2
+            PING = 2,
+            SYNC_REQUEST = 3
         };
 
         Atoms() = default;
@@ -94,7 +95,7 @@ namespace XWindowSystemUtilities
 
         static constexpr unsigned long DndVersion = 3;
 
-        Atom protocols, protocolList[3], changeState, state, userTime, activeWin, pid, windowType, windowState,
+        Atom protocols, protocolList[4], xSyncCounter, changeState, state, userTime, activeWin, pid, windowType, windowState,
              windowStateHidden, windowStateMaximisedHorz, windowStateMaximisedVert,
              XdndAware, XdndEnter, XdndLeave, XdndPosition, XdndStatus, XdndDrop, XdndFinished, XdndSelection,
              XdndTypeList, XdndActionList, XdndActionDescription, XdndActionCopy, XdndActionPrivate,
@@ -234,6 +235,8 @@ public:
 
     bool isKeyCurrentlyDown (int keyCode) const;
     ModifierKeys getNativeRealtimeModifiers() const;
+
+    static void setSyncCounter (::Display* display, XSyncCounter counter, int64 value);
 
     Array<Displays::Display> findDisplays (float masterScale) const;
 

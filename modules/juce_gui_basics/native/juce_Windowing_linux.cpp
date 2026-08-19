@@ -671,6 +671,14 @@ private:
     ScopedWindowAssociation association;
     unsigned long moveResizeSerial = 0;
 
+public:
+    // Counters and state for the _NET_WM_SYNC_REQUEST protocol, updated from XWindowSystem
+    XID updateCounter = 0;
+    XID extendedUpdateCounter = 0;
+    long updateCounterValue = 0;
+    bool newCounter = false;
+
+private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LinuxComponentPeer)
 };

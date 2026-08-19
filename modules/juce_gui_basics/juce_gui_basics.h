@@ -388,6 +388,9 @@ namespace juce
    #include <X11/Xcursor/Xcursor.h>
   #endif
 
+  // XSync extension, used to implement the _NET_WM_SYNC_REQUEST protocol
+  #include <X11/extensions/sync.h>
+
   #if JUCE_USE_XINPUT
    // If you're missing this header, you need to install the libxi-dev package
    #include <X11/extensions/XInput2.h>

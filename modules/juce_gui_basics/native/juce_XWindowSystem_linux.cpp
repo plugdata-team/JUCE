@@ -105,6 +105,8 @@ XWindowSystemUtilities::Atoms::Atoms (::Display* display)
     protocolList [TAKE_FOCUS]    = getIfExists (display, "WM_TAKE_FOCUS");
     protocolList [DELETE_WINDOW] = getIfExists (display, "WM_DELETE_WINDOW");
     protocolList [PING]          = getIfExists (display, "_NET_WM_PING");
+    protocolList [SYNC_REQUEST]  = getIfExists (display, "_NET_WM_SYNC_REQUEST");
+    xSyncCounter                 = getIfExists (display, "_NET_WM_SYNC_REQUEST_COUNTER");
     changeState                  = getIfExists (display, "WM_CHANGE_STATE");
     state                        = getIfExists (display, "WM_STATE");
     userTime                     = getCreating (display, "_NET_WM_USER_TIME");
@@ -1200,6 +1202,18 @@ public:
         else
        #endif
             X11Symbols::getInstance()->xPutImage (display, (::Drawable) window, gc, xImage.get(), sx, sy, dx, dy, dw, dh);
+
+        // If the window manager has sent a _NET_WM_SYNC_REQUEST, update the sync counters now that
+        // the frame has been presented, so it knows the paint for this configure request is complete.
+        if (auto* peer = dynamic_cast<LinuxComponentPeer*> (getPeerFor (window)))
+        {
+            if (peer->newCounter)
+            {
+                peer->newCounter = false;
+                XWindowSystem::setSyncCounter (display, peer->extendedUpdateCounter, peer->updateCounterValue);
+                XWindowSystem::setSyncCounter (display, peer->updateCounter, peer->updateCounterValue);
+            }
+        }
     }
 
     #if JUCE_USE_XSHM
@@ -1722,8 +1736,18 @@ static int getAllEventsMask (bool ignoresMouseClicks)
     auto pid = (unsigned long) getpid();
     xchangeProperty (windowH, atoms.pid, XA_CARDINAL, 32, &pid, 1);
 
+    // Create the counters used by the _NET_WM_SYNC_REQUEST protocol
+    XSyncValue initialValue;
+    X11Symbols::getInstance()->xSyncIntToValue (&initialValue, 0);
+    peer->updateCounter         = X11Symbols::getInstance()->xSyncCreateCounter (display, initialValue);
+    peer->extendedUpdateCounter = X11Symbols::getInstance()->xSyncCreateCounter (display, initialValue);
+
     // Set window manager protocols
-    xchangeProperty (windowH, atoms.protocols, XA_ATOM, 32, atoms.protocolList, 2);
+    xchangeProperty (windowH, atoms.protocols, XA_ATOM, 32, atoms.protocolList, 4);
+
+    // Advertise the sync counters to the window manager
+    XID counters[2] = { peer->updateCounter, peer->extendedUpdateCounter };
+    xchangeProperty (windowH, atoms.xSyncCounter, XA_CARDINAL, 32, counters, 2);
 
     // Set drag and drop flags
     xchangeProperty (windowH, atoms.XdndTypeList, XA_ATOM, 32, atoms.allowedMimeTypes, numElementsInArray (atoms.allowedMimeTypes));
@@ -2654,6 +2678,13 @@ bool XWindowSystem::isKeyCurrentlyDown (int keyCode) const
     auto keybit = (1 << (keycode & 7));
 
     return (Keys::keyStates [keybyte] & keybit) != 0;
+}
+
+void XWindowSystem::setSyncCounter (::Display* display, XSyncCounter counter, int64 value)
+{
+    XSyncValue syncValue;
+    X11Symbols::getInstance()->xSyncIntsToValue (&syncValue, (int) (value & 0xffffffff), (int) (value >> 32));
+    X11Symbols::getInstance()->xSyncSetCounter (display, counter, syncValue);
 }
 
 ModifierKeys XWindowSystem::getNativeRealtimeModifiers() const
@@ -4084,6 +4115,13 @@ void XWindowSystem::handleClientMessageEvent (LinuxComponentPeer* peer, XClientM
         else if (atom == atoms.protocolList [XWindowSystemUtilities::Atoms::DELETE_WINDOW])
         {
             peer->handleUserClosingWindow();
+        }
+        else if (atom == atoms.protocolList [XWindowSystemUtilities::Atoms::SYNC_REQUEST])
+        {
+            // Store the value the window manager wants the sync counters set to; it is written
+            // back once the next frame has been painted (see XBitmapImage::blitToWindow()).
+            peer->updateCounterValue = clientMsg.data.l[2];
+            peer->newCounter = true;
         }
     }
     else if (clientMsg.message_type == atoms.XdndEnter)

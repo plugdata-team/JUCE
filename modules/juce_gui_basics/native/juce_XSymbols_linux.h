@@ -509,6 +509,23 @@ public:
                                          (::Display*, Bool),
                                          int)
 
+    // _NET_WM_SYNC_REQUEST support (XSync extension)
+    JUCE_GENERATE_FUNCTION_WITH_DEFAULT (XSyncCreateCounter, xSyncCreateCounter,
+                                         (::Display*, XSyncValue),
+                                         XSyncCounter)
+
+    JUCE_GENERATE_FUNCTION_WITH_DEFAULT (XSyncIntToValue, xSyncIntToValue,
+                                         (XSyncValue*, int),
+                                         void)
+
+    JUCE_GENERATE_FUNCTION_WITH_DEFAULT (XSyncIntsToValue, xSyncIntsToValue,
+                                         (XSyncValue*, int, int),
+                                         void)
+
+    JUCE_GENERATE_FUNCTION_WITH_DEFAULT (XSyncSetCounter, xSyncSetCounter,
+                                         (::Display*, XSyncCounter, XSyncValue),
+                                         void)
+
     JUCE_GENERATE_FUNCTION_WITH_DEFAULT (XTranslateCoordinates, xTranslateCoordinates,
                                          (::Display*, ::Window, ::Window, int, int, int*, int*, ::Window*),
                                          Bool)
