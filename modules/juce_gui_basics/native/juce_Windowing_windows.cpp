@@ -4683,7 +4683,7 @@ extern bool juce_isRunningInWine();
 
 ComponentPeer* Component::createNewPeer (int styleFlags, void* parentHWND)
 {
-    const auto renderer = juce_isRunningInWine() ? 0 : 1;
+    const auto renderer = 0; // Always use software rendering for plugdata, since it's only used for dialogs anyway
     return new HWNDComponentPeer { *this, styleFlags, (HWND) parentHWND, false, renderer };
 }
 
