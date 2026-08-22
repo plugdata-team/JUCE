@@ -93,6 +93,71 @@ static constexpr EGLSurface nullSurface = EGL_NO_SURFACE;
 JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 //==============================================================================
+/*  eglGetPlatformDisplay() returns the same EGLDisplay for a given native display,
+    so every OpenGLContext in the process ends up sharing one connection.
+    eglTerminate() is not reference-counted by the EGL spec: it marks *all* contexts
+    and surfaces created from that display for destruction, so tearing down one
+    NativeContext would stop rendering in every other context that is still alive.
+
+    This keeps a use count per display so the connection is only terminated once the
+    last NativeContext using it has gone away.
+*/
+struct EGLDisplayRefCount
+{
+    static bool initialise (EGLDisplay display)
+    {
+        const ScopedLock sl (getLock());
+        auto& counts = getCounts();
+
+        if (const auto it = counts.find (display); it != counts.end())
+        {
+            ++(it->second);
+            return true;
+        }
+
+        EGLint major = 0, minor = 0;
+
+        if (! eglInitialize (display, &major, &minor))
+            return false;
+
+        counts.emplace (display, 1);
+        return true;
+    }
+
+    static void terminate (EGLDisplay display)
+    {
+        const ScopedLock sl (getLock());
+        auto& counts = getCounts();
+        const auto it = counts.find (display);
+
+        if (it == counts.end())
+        {
+            jassertfalse;
+            return;
+        }
+
+        if (--(it->second) > 0)
+            return;
+
+        counts.erase (it);
+        eglTerminate (display);
+    }
+
+private:
+    static std::map<EGLDisplay, int>& getCounts()
+    {
+        static std::map<EGLDisplay, int> counts;
+        return counts;
+    }
+
+    static CriticalSection& getLock()
+    {
+        static CriticalSection lock;
+        return lock;
+    }
+};
+
+//==============================================================================
 class OpenGLContext::NativeContext
 {
 private:
@@ -171,12 +236,10 @@ public:
         if (eglDisplay == nullDisplay)
             return;
 
-        {
-            EGLint major = 0, minor = 0;
+        if (! EGLDisplayRefCount::initialise (eglDisplay))
+            return;
 
-            if (! eglInitialize (eglDisplay, &major, &minor))
-                return;
-        }
+        displayInitialised = true;
 
         const EGLint optionalAttribs[]
         {
@@ -253,8 +316,8 @@ public:
         eglSurface.reset();
         renderContext.reset();
 
-        if (eglDisplay != nullDisplay)
-            eglTerminate (eglDisplay);
+        if (displayInitialised)
+            EGLDisplayRefCount::terminate (eglDisplay);
 
         if (auto* peer = component.getPeer())
         {
@@ -490,6 +553,7 @@ private:
     Version version{};
     Profile profile{};
 
+    bool displayInitialised = false;
     bool constructorDidComplete = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NativeContext)
