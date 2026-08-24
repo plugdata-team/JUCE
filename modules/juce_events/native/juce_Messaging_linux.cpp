@@ -84,7 +84,8 @@ public:
         if (bytesInSocket >= maxBytesInSocketQueue)
         {
             // Is the message thread overloaded by tasks taking too long?
-            jassertfalse;
+            // plugdata change: No, this just gets triggered easily when requesting many async calls
+            //jassertfalse;
             return;
         }
 
