@@ -128,13 +128,14 @@ public:
 
     /** Attaches the context to a target component.
 
-        If the component is not fully visible, this call will wait until the component
-        is shown before actually creating a native context for it.
+        If the component is not fully visible, this call will normally wait until the
+        component is shown before actually creating a native context for it. An externally-
+        driven context may attach as soon as the component has a peer and non-zero size.
 
-        When a native context is created, a thread is started, and will be used to call
-        the OpenGLRenderer methods. The context will be floated above the target component,
-        and when the target moves, it will track it. If the component is hidden/shown, the
-        context may be deleted and re-created.
+        Unless the context is externally driven, when a native context is created, a thread
+        is started and will be used to call the OpenGLRenderer methods. The context will be
+        floated above the target component, and when the target moves, it will track it. If
+        the component is hidden/shown, the context may be deleted and re-created.
     */
     void attachTo (Component&);
 
@@ -144,16 +145,27 @@ public:
     */
     void detach();
 
-    /** Returns true if the context is attached to a component and is on-screen.
-        Note that if you call attachTo() for a non-visible component, this method will
-        return false until the component is made visible.
+    /** Returns true if the context currently has a native context attached.
+        For a regular context attached to a non-visible component, this returns false until
+        the component is made visible. An externally-driven context may remain attached
+        while its component is hidden.
     */
     bool isAttached() const noexcept;
 
-    /** Initialises this context on the calling thread.
-        This is intended for hosts that drive rendering from their own thread.
+    /** Initialises an externally-driven context on the calling thread.
+
+        This must be called by the thread that will use the context, after the context has
+        been attached and before the first call to makeActive(). It is safe to call this
+        repeatedly; only the first call for each native-context lifetime has an effect.
     */
     void initialiseOnThread();
+
+    /** Shuts down an externally-driven context on the calling thread.
+
+        Call this on the thread that owns the context before detaching it. It is safe to
+        call this repeatedly.
+    */
+    void shutdownOnThread();
 
     /** Returns the component to which this context is currently attached, or nullptr. */
     Component* getTargetComponent() const noexcept;
@@ -303,6 +315,21 @@ public:
     */
     void setContinuousRepainting (bool shouldContinuouslyRepaint) noexcept;
 
+    /** Selects whether rendering is driven entirely by an external thread.
+
+        In this mode JUCE creates, attaches, resizes, and destroys the native context, but
+        does not add it to a JUCE render thread. The caller must use initialiseOnThread(),
+        makeActive(), swapBuffers(), and shutdownOnThread() from its rendering thread.
+
+        Once attached, the native context is kept alive while the target component has a
+        peer, even if the component is temporarily hidden or has zero size.
+
+        Component painting, OpenGLRenderer callbacks, continuous repainting, and asynchronous
+        executeOnGLThread() calls are not available in this mode. This must be called before
+        attaching the context to a component.
+    */
+    void setExternallyDriven (bool shouldBeExternallyDriven) noexcept;
+
     /** Asynchronously causes a repaint to be made. */
     void triggerRepaint();
 
@@ -400,10 +427,18 @@ public:
         includes AffineTransforms that affect the rendered area, and will be correctly
         reported not just in standalone applications but plugins as well.
 
-        Note that this should only be called during an OpenGLRenderer::renderOpenGL()
-        callback - at other times the value it returns is undefined.
+        For contexts managed by JUCE, this should only be called during an
+        OpenGLRenderer::renderOpenGL() callback. For externally-driven contexts, it may be
+        called at any time after attachment and returns the most recently observed scale.
     */
-    double getRenderingScale() const noexcept   { return currentRenderScale; }
+    double getRenderingScale() const noexcept;
+
+    /** Returns the physical-pixel bounds of the attached rendering surface.
+
+        The returned rectangle has its origin at zero. An empty rectangle is returned when
+        no rendering surface is attached.
+    */
+    Rectangle<int> getRenderingTargetBounds() const noexcept;
 
     //==============================================================================
     /** If this context is backed by a frame buffer, this returns its ID number,
@@ -500,6 +535,7 @@ private:
     , actualProfile{};
     size_t imageCacheMaxSize = 8 * 1024 * 1024;
     bool renderComponents = true, useMultisampling = false, overrideCanAttach = false;
+    bool externallyDriven = false;
     std::atomic<bool> continuousRepaint { false };
     TextureMagnificationFilter texMagFilter = linear;
 

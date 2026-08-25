@@ -155,6 +155,7 @@ class OpenGLContext::CachedImage final : public CachedComponentImage
     };
 
 public:
+
     CachedImage (OpenGLContext& c, Component& comp,
                  const OpenGLPixelFormat& pixFormat, void* contextToShare)
         : context (c),
@@ -184,7 +185,7 @@ public:
     //==============================================================================
     void start()
     {
-        if (nativeContext != nullptr)
+        if (nativeContext != nullptr && ! context.externallyDriven)
             resume();
     }
 
@@ -192,6 +193,17 @@ public:
     {
         // make sure everything has finished executing
         state |= StateFlags::pendingDestruction;
+
+        if (context.externallyDriven)
+        {
+            // shutdownOnThread() should normally have been called by the external owner
+            // before detaching. Clean up here as a fallback so native resources are never
+            // abandoned if the host fails to do so.
+            jassert (! isFlagSet (state, StateFlags::initialised));
+            jassert (workQueue.size() == 0);
+            shutdownOnThread();
+            return;
+        }
 
         if (workQueue.size() > 0)
         {
@@ -208,8 +220,14 @@ public:
     //==============================================================================
     void pause()
     {
+        jassert (renderThread != nullptr);
         renderThread->remove (this);
 
+        shutdownOnThread();
+    }
+
+    void shutdownOnThread()
+    {
         if ((state.fetch_and (~StateFlags::initialised) & StateFlags::initialised) == 0)
             return;
 
@@ -220,7 +238,7 @@ public:
         nativeContext->notifyWillPause();
        #endif
 
-        if (context.renderer != nullptr)
+        if (context.renderer != nullptr && ! context.externallyDriven)
             context.renderer->openGLContextClosing();
 
         context.actualAPI = {};
@@ -235,6 +253,7 @@ public:
 
     void resume()
     {
+        jassert (renderThread != nullptr);
         renderThread->add (this);
     }
 
@@ -278,6 +297,10 @@ public:
 
     void triggerRepaint()
     {
+        if (context.externallyDriven)
+            return;
+
+        jassert (renderThread != nullptr);
         state |= (StateFlags::pendingRender | StateFlags::paintComponents);
         renderThread->triggerRepaint();
     }
@@ -643,9 +666,12 @@ public:
         {
             [nativeContext->view update];
 
-            // We're already on the message thread, no need to lock it again.
-            MessageManager::Lock mml;
-            renderFrame (mml);
+            if (! context.externallyDriven)
+            {
+                // We're already on the message thread, no need to lock it again.
+                MessageManager::Lock mml;
+                renderFrame (mml);
+            }
         }
        #endif
     }
@@ -708,7 +734,7 @@ public:
 
         textureNpotSupported = contextHasTextureNpotFeature();
 
-        if (context.renderer != nullptr)
+        if (context.renderer != nullptr && ! context.externallyDriven)
             context.renderer->newOpenGLContextCreated();
 
        #if JUCE_ANDROID
@@ -755,6 +781,21 @@ public:
 
     void execute (AsyncWorker::Ptr workerToUse, bool shouldBlock)
     {
+        if (context.externallyDriven)
+        {
+            // There is no JUCE-owned GL thread to enqueue work on in this mode. Allow
+            // callers already running on the owning thread to use this helper safely.
+            jassert (context.isActive());
+
+            if (context.isActive() && workerToUse != nullptr)
+            {
+                (*workerToUse) (context);
+                clearGLError();
+            }
+
+            return;
+        }
+
         if (! isFlagSet (state, StateFlags::pendingDestruction))
         {
             if (shouldBlock)
@@ -940,7 +981,7 @@ public:
     void refreshDisplayLinkConnection()
     {
        #if JUCE_MAC
-        if (context.continuousRepaint)
+        if (context.continuousRepaint && ! context.externallyDriven)
         {
             connection.emplace (sharedDisplayLinks->registerFactory ([this] (CGDirectDisplayID display)
             {
@@ -1204,7 +1245,19 @@ private:
 
     bool canBeAttached (const Component& comp) noexcept
     {
-        return (! context.overrideCanAttach) && comp.getWidth() > 0 && comp.getHeight() > 0 && isShowingOrMinimised (comp);
+        if (context.overrideCanAttach)
+            return false;
+
+        if (context.externallyDriven)
+        {
+            // The owner may continue using the context for offscreen rendering while
+            // its component is hidden. Keeping an existing context alive also avoids
+            // racing asynchronous visibility changes against the external GL thread.
+            return comp.getPeer() != nullptr
+                && (isAttached (comp) || (comp.getWidth() > 0 && comp.getHeight() > 0));
+        }
+
+        return comp.getWidth() > 0 && comp.getHeight() > 0 && isShowingOrMinimised (comp);
     }
 
     static bool isShowingOrMinimised (const Component& c)
@@ -1317,6 +1370,21 @@ void OpenGLContext::setContinuousRepainting (bool shouldContinuouslyRepaint) noe
    #endif
 
     triggerRepaint();
+}
+
+void OpenGLContext::setExternallyDriven (bool shouldBeExternallyDriven) noexcept
+{
+    jassert (attachment == nullptr);
+    jassert (! shouldBeExternallyDriven || renderer == nullptr);
+
+    externallyDriven = shouldBeExternallyDriven;
+
+    if (externallyDriven)
+    {
+        // These facilities all require a JUCE-owned render thread.
+        renderComponents = false;
+        continuousRepaint = false;
+    }
 }
 
 void OpenGLContext::setPixelFormat (const OpenGLPixelFormat& preferredPixelFormat) noexcept
@@ -1544,6 +1612,11 @@ OpenGLContext::CachedImage* OpenGLContext::getCachedImage() const noexcept
 
 void OpenGLContext::initialiseOnThread()
 {
+    jassert (externallyDriven);
+
+    if (! externallyDriven)
+        return;
+
     if (auto* c = getCachedImage())
     {
         if ((c->state.load() & CachedImage::initialised) != 0)
@@ -1554,6 +1627,34 @@ void OpenGLContext::initialiseOnThread()
         if (c->initialiseOnThread (activator) == InitResult::success)
             c->state |= CachedImage::initialised;
     }
+}
+
+void OpenGLContext::shutdownOnThread()
+{
+    jassert (externallyDriven);
+
+    if (! externallyDriven)
+        return;
+
+    if (auto* c = getCachedImage())
+        c->shutdownOnThread();
+}
+
+double OpenGLContext::getRenderingScale() const noexcept
+{
+    if (externallyDriven)
+        if (auto* c = getCachedImage())
+            return c->areaAndScale.get().scale;
+
+    return currentRenderScale;
+}
+
+Rectangle<int> OpenGLContext::getRenderingTargetBounds() const noexcept
+{
+    if (auto* c = getCachedImage())
+        return c->areaAndScale.get().area;
+
+    return {};
 }
 
 bool OpenGLContext::areShadersAvailable() const
