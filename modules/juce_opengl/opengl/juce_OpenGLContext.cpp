@@ -173,6 +173,11 @@ public:
         else
             nativeContext.reset();
 
+       #if JUCE_LINUX || JUCE_BSD
+        if (nativeContext != nullptr)
+            nativeContext->setFrameReadyCallback ([thread = renderThread] { thread->triggerRepaint(); });
+       #endif
+
         refreshDisplayLinkConnection();
     }
 
@@ -384,6 +389,16 @@ public:
 
         if (! isFlagSet (stateToUse, StateFlags::pendingRender) && noAutomaticRepaint)
             return RenderStatus::noWork;
+
+       #if JUCE_LINUX || JUCE_BSD
+        if (! nativeContext->isReadyForRender())
+        {
+            // GL worker jobs remain usable while the compositor has paused drawing.
+            doWorkWhileWaitingForLock (contextActivator);
+            state |= stateToUse;
+            return RenderStatus::noWork;
+        }
+       #endif
 
         const auto isUpdating = isFlagSet (stateToUse, StateFlags::paintComponents);
 

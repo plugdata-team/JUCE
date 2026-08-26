@@ -677,14 +677,34 @@ private:
 
 bool LinuxComponentPeer::isActiveApplication = false;
 
+// Wayland is only considered for standalone processes. Individual peers may still use X11.
+static bool isUsingWaylandBackend()
+{
+    return WaylandWindowSystem::shouldUseWaylandBackend()
+        && WaylandWindowSystem::getInstance()->isWaylandAvailable();
+}
+
 //==============================================================================
 ComponentPeer* Component::createNewPeer (int styleFlags, void* nativeWindowToAttachTo)
 {
+    // A parentless popup/tooltip/modal follows the session here, not its owner's backend (SUD-131).
+    if (nativeWindowToAttachTo == nullptr && isUsingWaylandBackend())
+        return createWaylandComponentPeer (*this, styleFlags);
+
     return new LinuxComponentPeer (*this, styleFlags, (::Window) nativeWindowToAttachTo);
 }
 
 //==============================================================================
-JUCE_API bool JUCE_CALLTYPE Process::isForegroundProcess()    { return LinuxComponentPeer::isActiveApplication; }
+JUCE_API bool JUCE_CALLTYPE Process::isForegroundProcess()
+{
+    // Wayland has no concept of an active application, so keyboard focus stands in for it.
+    // Windows attached to native X11 parents still report activity through the X11 flag.
+    if (isUsingWaylandBackend())
+        return WaylandWindowSystem::getInstance()->hasKeyboardFocus()
+            || LinuxComponentPeer::isActiveApplication;
+
+    return LinuxComponentPeer::isActiveApplication;
+}
 
 JUCE_API void JUCE_CALLTYPE Process::makeForegroundProcess()  {}
 JUCE_API void JUCE_CALLTYPE Process::hide()                   {}
@@ -692,12 +712,36 @@ JUCE_API void JUCE_CALLTYPE Process::hide()                   {}
 //==============================================================================
 void Desktop::setKioskComponent (Component* comp, bool enableOrDisable, bool)
 {
+    // A Wayland client cannot position or size a toplevel.
+    // Kiosk mode has to ask the compositor for fullscreen.
+    if (auto* peer = dynamic_cast<WaylandComponentPeer*> (comp->getPeer()))
+    {
+        peer->setFullScreen (enableOrDisable);
+        return;
+    }
+
     if (enableOrDisable)
         comp->setBounds (getDisplays().getDisplayForRect (comp->getScreenBounds())->logicalBounds.getSmallestIntegerContainer());
 }
 
 void Displays::findDisplays (const Desktop& desktop)
 {
+    if (isUsingWaylandBackend())
+    {
+        auto* windowSystem = WaylandWindowSystem::getInstance();
+
+        // The callback re-enters findDisplays() through refresh(), so register it only once.
+        if (! windowSystem->hasDisplaysChangedCallback())
+            windowSystem->setDisplaysChangedCallback ([]
+            {
+                if (auto* currentDesktop = Desktop::getInstanceWithoutCreating())
+                    currentDesktop->displays->refresh();
+            });
+
+        displays = windowSystem->findDisplays (desktop.getGlobalScaleFactor());
+        return;
+    }
+
     if (XWindowSystem::getInstance()->getDisplay() != nullptr)
     {
         displays = XWindowSystem::getInstance()->findDisplays (desktop.getGlobalScaleFactor());
@@ -709,6 +753,9 @@ void Displays::findDisplays (const Desktop& desktop)
 
 bool Desktop::canUseSemiTransparentWindows() noexcept
 {
+    if (isUsingWaylandBackend())
+        return true;
+
     return XWindowSystem::getInstance()->canUseSemiTransparentWindows();
 }
 
@@ -717,6 +764,12 @@ class Desktop::NativeDarkModeChangeDetectorImpl  : private XWindowSystemUtilitie
 public:
     NativeDarkModeChangeDetectorImpl()
     {
+        if (isUsingWaylandBackend())
+        {
+            // Avoid eager XSettings/X11 startup; native dark-mode support is deferred (SUD-128).
+            return;
+        }
+
         const auto* windowSystem = XWindowSystem::getInstance();
 
         if (auto* xSettings = windowSystem->getXSettings())
@@ -727,6 +780,13 @@ public:
 
     ~NativeDarkModeChangeDetectorImpl() override
     {
+        if (auto* windowSystem = WaylandWindowSystem::getInstanceWithoutCreating())
+            if (windowSystem->isWaylandAvailable())
+            {
+                // No XSettings listener was registered on the Wayland path (SUD-128).
+                return;
+            }
+
         if (auto* windowSystem = XWindowSystem::getInstanceWithoutCreating())
             if (auto* xSettings = windowSystem->getXSettings())
                 xSettings->removeListener (this);
@@ -799,16 +859,26 @@ bool detail::MouseInputSourceList::addSource()
 
 bool detail::MouseInputSourceList::canUseTouch() const
 {
+    if (isUsingWaylandBackend())
+        return WaylandWindowSystem::getInstance()->isTouchBound();
+
     return XWindowSystem::getInstance()->canUseMultiTouch();
 }
 
 Point<float> MouseInputSource::getCurrentRawMousePosition()
 {
+    if (isUsingWaylandBackend())
+        return WaylandWindowSystem::getInstance()->getCurrentMousePosition();
+
     return detail::ScalingHelpers::convertPhysicalScreenPointToLogical (XWindowSystem::getInstance()->getCurrentMousePosition());
 }
 
 void MouseInputSource::setRawMousePosition (Point<float> newPosition)
 {
+    // Compositor support for wp_pointer_warp_v1 is currently spotty (SUD-260)
+    if (isUsingWaylandBackend())
+        return;
+
     XWindowSystem::getInstance()->setMousePosition (detail::ScalingHelpers::convertLogicalScreenPointToPhysical (newPosition));
 }
 
@@ -817,27 +887,80 @@ class MouseCursor::PlatformSpecificHandle
 {
 public:
     explicit PlatformSpecificHandle (const MouseCursor::StandardCursorType type)
-        : cursorHandle (makeHandle (type)) {}
+        : cursorInfo (type) {}
 
     explicit PlatformSpecificHandle (const detail::CustomMouseCursorInfo& info)
-        : cursorHandle (makeHandle (info)) {}
+        : cursorInfo (info) {}
 
     ~PlatformSpecificHandle()
     {
-        if (cursorHandle != Cursor{})
+        if (const auto* info = std::get_if<detail::CustomMouseCursorInfo> (&cursorInfo))
+            if (auto* windowSystem = WaylandWindowSystem::getInstanceWithoutCreating())
+                windowSystem->removeCustomCursorCache (*info);
+
+        if (x11Cursor.has_value() && *x11Cursor != Cursor{})
             if (auto* windowSystem = XWindowSystem::getInstanceWithoutCreating())
-                windowSystem->deleteMouseCursor (cursorHandle);
+                windowSystem->deleteMouseCursor (*x11Cursor);
     }
 
     static void showInWindow (PlatformSpecificHandle* handle, ComponentPeer* peer)
     {
-        const auto cursor = handle != nullptr ? handle->cursorHandle : Cursor{};
+        if (peer == nullptr)
+            return;
 
-        if (peer != nullptr)
-            XWindowSystem::getInstance()->showCursor ((::Window) peer->getNativeHandle(), cursor);
+        if (auto* x11Peer = dynamic_cast<LinuxComponentPeer*> (peer))
+        {
+            const auto cursor = handle != nullptr ? handle->getX11Cursor() : Cursor{};
+            XWindowSystem::getInstance()->showCursor ((::Window) x11Peer->getNativeHandle(), cursor);
+
+            return;
+        }
+
+        auto* windowSystem = WaylandWindowSystem::getInstanceWithoutCreating();
+
+        if (windowSystem == nullptr)
+            return;
+
+        auto* surface = static_cast<wl_surface*> (peer->getNativeHandle());
+
+        if (handle == nullptr)
+            windowSystem->showCursor (surface, MouseCursor::NormalCursor);
+        else
+            handle->showWaylandCursor (*windowSystem, surface);
     }
 
 private:
+    void showWaylandCursor (WaylandWindowSystem& windowSystem, wl_surface* surface) const
+    {
+        if (const auto* type = std::get_if<MouseCursor::StandardCursorType> (&cursorInfo))
+        {
+            windowSystem.showCursor (surface, *type);
+            return;
+        }
+
+        if (const auto* info = std::get_if<detail::CustomMouseCursorInfo> (&cursorInfo))
+            windowSystem.showCursor (surface, *info);
+    }
+
+    Cursor getX11Cursor()
+    {
+        if (! x11Cursor.has_value())
+            x11Cursor = makeX11Cursor();
+
+        return *x11Cursor;
+    }
+
+    Cursor makeX11Cursor() const
+    {
+        if (const auto* type = std::get_if<MouseCursor::StandardCursorType> (&cursorInfo))
+            return makeHandle (*type);
+
+        if (const auto* info = std::get_if<detail::CustomMouseCursorInfo> (&cursorInfo))
+            return makeHandle (*info);
+
+        return {};
+    }
+
     static Cursor makeHandle (const detail::CustomMouseCursorInfo& info)
     {
         const auto image = info.image.getImage();
@@ -850,7 +973,8 @@ private:
         return XWindowSystem::getInstance()->createStandardMouseCursor (type);
     }
 
-    Cursor cursorHandle;
+    std::variant<MouseCursor::StandardCursorType, detail::CustomMouseCursorInfo> cursorInfo;
+    std::optional<Cursor> x11Cursor;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE (PlatformSpecificHandle)
@@ -858,17 +982,15 @@ private:
 };
 
 //==============================================================================
-static LinuxComponentPeer* getPeerForDragEvent (Component* sourceComp)
+static ComponentPeer* getPeerForDragEvent (Component* sourceComp)
 {
     if (sourceComp == nullptr)
         if (auto* draggingSource = Desktop::getInstance().getDraggingMouseSource (0))
             sourceComp = draggingSource->getComponentUnderMouse();
 
     if (sourceComp != nullptr)
-        if (auto* lp = dynamic_cast<LinuxComponentPeer*> (sourceComp->getPeer()))
-            return lp;
+        return sourceComp->getPeer();
 
-    jassertfalse;  // This method must be called in response to a component's mouseDown or mouseDrag event!
     return nullptr;
 }
 
@@ -879,7 +1001,14 @@ bool DragAndDropContainer::performExternalDragDropOfFiles (const StringArray& fi
         return false;
 
     if (auto* peer = getPeerForDragEvent (sourceComp))
-        return XWindowSystem::getInstance()->externalDragFileInit (peer, files, canMoveFiles, std::move (callback));
+    {
+        if (auto* waylandPeer = dynamic_cast<WaylandComponentPeer*> (peer))
+            return WaylandWindowSystem::getInstance()->externalDragFileInit (static_cast<wl_surface*> (waylandPeer->getNativeHandle()),
+                                                                             files, canMoveFiles, std::move (callback));
+
+        return XWindowSystem::getInstance()->externalDragFileInit (static_cast<LinuxComponentPeer*> (peer),
+                                                                   files, canMoveFiles, std::move (callback));
+    }
 
     // This method must be called in response to a component's mouseDown or mouseDrag event!
     jassertfalse;
@@ -893,7 +1022,14 @@ bool DragAndDropContainer::performExternalDragDropOfText (const String& text, Co
         return false;
 
     if (auto* peer = getPeerForDragEvent (sourceComp))
-        return XWindowSystem::getInstance()->externalDragTextInit (peer, text, std::move (callback));
+    {
+        if (auto* waylandPeer = dynamic_cast<WaylandComponentPeer*> (peer))
+            return WaylandWindowSystem::getInstance()->externalDragTextInit (static_cast<wl_surface*> (waylandPeer->getNativeHandle()),
+                                                                             text, std::move (callback));
+
+        return XWindowSystem::getInstance()->externalDragTextInit (static_cast<LinuxComponentPeer*> (peer),
+                                                                   text, std::move (callback));
+    }
 
     // This method must be called in response to a component's mouseDown or mouseDrag event!
     jassertfalse;
@@ -903,17 +1039,29 @@ bool DragAndDropContainer::performExternalDragDropOfText (const String& text, Co
 //==============================================================================
 void SystemClipboard::copyTextToClipboard (const String& clipText)
 {
+    if (isUsingWaylandBackend())
+    {
+        WaylandWindowSystem::getInstance()->copyTextToClipboard (clipText);
+        return;
+    }
+
     XWindowSystem::getInstance()->copyTextToClipboard (clipText);
 }
 
 String SystemClipboard::getTextFromClipboard()
 {
+    if (isUsingWaylandBackend())
+        return WaylandWindowSystem::getInstance()->getTextFromClipboard();
+
     return XWindowSystem::getInstance()->getTextFromClipboard();
 }
 
 //==============================================================================
 bool KeyPress::isKeyCurrentlyDown (int keyCode)
 {
+    if (isUsingWaylandBackend())
+        return WaylandWindowSystem::getInstance()->isKeyCurrentlyDown (keyCode);
+
     return XWindowSystem::getInstance()->isKeyCurrentlyDown (keyCode);
 }
 

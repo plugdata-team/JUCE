@@ -238,6 +238,8 @@
 //==============================================================================
 #elif JUCE_LINUX
  #include "native/juce_CommonFile_linux.cpp"
+ #include "native/juce_DBusSymbols_linux.h"
+ #include "native/juce_DBusSymbols_linux.cpp"
  #include "native/juce_Files_linux.cpp"
  #include "native/juce_Network_linux.cpp"
  #if JUCE_USE_CURL
@@ -250,6 +252,8 @@
 //==============================================================================
 #elif JUCE_BSD
  #include "native/juce_CommonFile_linux.cpp"
+ #include "native/juce_DBusSymbols_linux.h"
+ #include "native/juce_DBusSymbols_linux.cpp"
  #include "native/juce_Files_linux.cpp"
  #include "native/juce_Network_linux.cpp"
  #if JUCE_USE_CURL
