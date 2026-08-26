@@ -403,6 +403,22 @@ public:
     */
     void replaceState (const ValueTree& newState);
 
+    /** Synchronously flushes any pending parameter value updates into the state
+        ValueTree, recording them on the given UndoManager instead of the one this
+        object owns. Pass nullptr to record nothing.
+
+        This lets callers apply state changes (e.g. a preset load) as a single
+        synchronous boundary: after this returns, no deferred timer flush remains
+        to write parameter values back into the tree with the undo manager.
+
+        Returns true if any parameter values were flushed.
+
+        Note: This method uses locks to synchronise thread access, so whilst it is
+        thread-safe, it is not realtime-safe. Do not call this method from within
+        your audio processing code!
+    */
+    bool flushParameterValuesToValueTree (UndoManager* undoManagerToUse);
+
     //==============================================================================
     /** A reference to the processor with which this state is associated. */
     AudioProcessor& processor;

@@ -425,7 +425,6 @@ namespace Keys
     static bool numLock = false;
     static bool capsLock = false;
     static char keyStates [32];
-    static constexpr int extendedKeyModifier = 0x10000000;
     static bool modifierKeysAreStale = false;
 
     static void refreshStaleModifierKeys()
@@ -453,78 +452,146 @@ namespace Keys
     }
 }
 
+// The shared translation header writes its keysym values out by hand so it never needs the X11
+// headers. This file has them, so check every value against the real X11 definition here.
+static_assert (KeySymTranslation::keyAsterisk   == XK_asterisk);
+static_assert (KeySymTranslation::keyPlus       == XK_plus);
+static_assert (KeySymTranslation::keySlash      == XK_slash);
+static_assert (KeySymTranslation::key0          == XK_0);
+static_assert (KeySymTranslation::key1          == XK_1);
+static_assert (KeySymTranslation::key2          == XK_2);
+static_assert (KeySymTranslation::key3          == XK_3);
+static_assert (KeySymTranslation::key4          == XK_4);
+static_assert (KeySymTranslation::key5          == XK_5);
+static_assert (KeySymTranslation::key6          == XK_6);
+static_assert (KeySymTranslation::key7          == XK_7);
+static_assert (KeySymTranslation::key8          == XK_8);
+static_assert (KeySymTranslation::key9          == XK_9);
+static_assert (KeySymTranslation::keyHyphen     == XK_hyphen);
+static_assert (KeySymTranslation::keyISOLeftTab == XK_ISO_Left_Tab);
+static_assert (KeySymTranslation::keyBackSpace  == XK_BackSpace);
+static_assert (KeySymTranslation::keyTab        == XK_Tab);
+static_assert (KeySymTranslation::keyReturn     == XK_Return);
+static_assert (KeySymTranslation::keyScrollLock == XK_Scroll_Lock);
+static_assert (KeySymTranslation::keyEscape     == XK_Escape);
+static_assert (KeySymTranslation::keyHome       == XK_Home);
+static_assert (KeySymTranslation::keyLeft       == XK_Left);
+static_assert (KeySymTranslation::keyUp         == XK_Up);
+static_assert (KeySymTranslation::keyRight      == XK_Right);
+static_assert (KeySymTranslation::keyDown       == XK_Down);
+static_assert (KeySymTranslation::keyPageUp     == XK_Page_Up);
+static_assert (KeySymTranslation::keyPageDown   == XK_Page_Down);
+static_assert (KeySymTranslation::keyEnd        == XK_End);
+static_assert (KeySymTranslation::keyInsert     == XK_Insert);
+static_assert (KeySymTranslation::keyNumLock    == XK_Num_Lock);
+static_assert (KeySymTranslation::keyKPEnter    == XK_KP_Enter);
+static_assert (KeySymTranslation::keyKPHome     == XK_KP_Home);
+static_assert (KeySymTranslation::keyKPLeft     == XK_KP_Left);
+static_assert (KeySymTranslation::keyKPUp       == XK_KP_Up);
+static_assert (KeySymTranslation::keyKPRight    == XK_KP_Right);
+static_assert (KeySymTranslation::keyKPDown     == XK_KP_Down);
+static_assert (KeySymTranslation::keyKPPageUp   == XK_KP_Page_Up);
+static_assert (KeySymTranslation::keyKPPageDown == XK_KP_Page_Down);
+static_assert (KeySymTranslation::keyKPEnd      == XK_KP_End);
+static_assert (KeySymTranslation::keyKPInsert   == XK_KP_Insert);
+static_assert (KeySymTranslation::keyKPDelete   == XK_KP_Delete);
+static_assert (KeySymTranslation::keyKPMultiply == XK_KP_Multiply);
+static_assert (KeySymTranslation::keyKPAdd      == XK_KP_Add);
+static_assert (KeySymTranslation::keyKPSubtract == XK_KP_Subtract);
+static_assert (KeySymTranslation::keyKPDivide   == XK_KP_Divide);
+static_assert (KeySymTranslation::keyKP0        == XK_KP_0);
+static_assert (KeySymTranslation::keyKP1        == XK_KP_1);
+static_assert (KeySymTranslation::keyKP2        == XK_KP_2);
+static_assert (KeySymTranslation::keyKP3        == XK_KP_3);
+static_assert (KeySymTranslation::keyKP4        == XK_KP_4);
+static_assert (KeySymTranslation::keyKP5        == XK_KP_5);
+static_assert (KeySymTranslation::keyKP6        == XK_KP_6);
+static_assert (KeySymTranslation::keyKP7        == XK_KP_7);
+static_assert (KeySymTranslation::keyKP8        == XK_KP_8);
+static_assert (KeySymTranslation::keyKP9        == XK_KP_9);
+static_assert (KeySymTranslation::keyF1         == XK_F1);
+static_assert (KeySymTranslation::keyF35        == XK_F35);
+static_assert (KeySymTranslation::keyShiftL     == XK_Shift_L);
+static_assert (KeySymTranslation::keyShiftR     == XK_Shift_R);
+static_assert (KeySymTranslation::keyControlL   == XK_Control_L);
+static_assert (KeySymTranslation::keyControlR   == XK_Control_R);
+static_assert (KeySymTranslation::keyCapsLock   == XK_Caps_Lock);
+static_assert (KeySymTranslation::keyAltL       == XK_Alt_L);
+static_assert (KeySymTranslation::keyAltR       == XK_Alt_R);
+static_assert (KeySymTranslation::keyDelete     == XK_Delete);
+
 const int KeyPress::spaceKey              = XK_space         & 0xff;
 const int KeyPress::returnKey             = XK_Return        & 0xff;
 const int KeyPress::escapeKey             = XK_Escape        & 0xff;
 const int KeyPress::backspaceKey          = XK_BackSpace     & 0xff;
-const int KeyPress::leftKey               = (XK_Left         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::rightKey              = (XK_Right        & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::upKey                 = (XK_Up           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::downKey               = (XK_Down         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::pageUpKey             = (XK_Page_Up      & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::pageDownKey           = (XK_Page_Down    & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::endKey                = (XK_End          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::homeKey               = (XK_Home         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::insertKey             = (XK_Insert       & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::deleteKey             = (XK_Delete       & 0xff) | Keys::extendedKeyModifier;
+const int KeyPress::leftKey               = (XK_Left         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::rightKey              = (XK_Right        & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::upKey                 = (XK_Up           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::downKey               = (XK_Down         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::pageUpKey             = (XK_Page_Up      & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::pageDownKey           = (XK_Page_Down    & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::endKey                = (XK_End          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::homeKey               = (XK_Home         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::insertKey             = (XK_Insert       & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::deleteKey             = (XK_Delete       & 0xff) | KeySymTranslation::extendedKeyModifier;
 const int KeyPress::tabKey                = XK_Tab           & 0xff;
-const int KeyPress::F1Key                 = (XK_F1           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F2Key                 = (XK_F2           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F3Key                 = (XK_F3           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F4Key                 = (XK_F4           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F5Key                 = (XK_F5           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F6Key                 = (XK_F6           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F7Key                 = (XK_F7           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F8Key                 = (XK_F8           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F9Key                 = (XK_F9           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F10Key                = (XK_F10          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F11Key                = (XK_F11          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F12Key                = (XK_F12          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F13Key                = (XK_F13          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F14Key                = (XK_F14          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F15Key                = (XK_F15          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F16Key                = (XK_F16          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F17Key                = (XK_F17          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F18Key                = (XK_F18          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F19Key                = (XK_F19          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F20Key                = (XK_F20          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F21Key                = (XK_F21          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F22Key                = (XK_F22          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F23Key                = (XK_F23          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F24Key                = (XK_F24          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F25Key                = (XK_F25          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F26Key                = (XK_F26          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F27Key                = (XK_F27          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F28Key                = (XK_F28          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F29Key                = (XK_F29          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F30Key                = (XK_F30          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F31Key                = (XK_F31          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F32Key                = (XK_F32          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F33Key                = (XK_F33          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F34Key                = (XK_F34          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F35Key                = (XK_F35          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad0            = (XK_KP_0         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad1            = (XK_KP_1         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad2            = (XK_KP_2         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad3            = (XK_KP_3         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad4            = (XK_KP_4         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad5            = (XK_KP_5         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad6            = (XK_KP_6         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad7            = (XK_KP_7         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad8            = (XK_KP_8         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad9            = (XK_KP_9         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadAdd          = (XK_KP_Add       & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadSubtract     = (XK_KP_Subtract  & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadMultiply     = (XK_KP_Multiply  & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadDivide       = (XK_KP_Divide    & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadSeparator    = (XK_KP_Separator & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadDecimalPoint = (XK_KP_Decimal   & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadEquals       = (XK_KP_Equal     & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadDelete       = (XK_KP_Delete    & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::playKey               = ((int) 0xffeeff00)       | Keys::extendedKeyModifier;
-const int KeyPress::stopKey               = ((int) 0xffeeff01)       | Keys::extendedKeyModifier;
-const int KeyPress::fastForwardKey        = ((int) 0xffeeff02)       | Keys::extendedKeyModifier;
-const int KeyPress::rewindKey             = ((int) 0xffeeff03)       | Keys::extendedKeyModifier;
+const int KeyPress::F1Key                 = (XK_F1           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F2Key                 = (XK_F2           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F3Key                 = (XK_F3           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F4Key                 = (XK_F4           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F5Key                 = (XK_F5           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F6Key                 = (XK_F6           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F7Key                 = (XK_F7           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F8Key                 = (XK_F8           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F9Key                 = (XK_F9           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F10Key                = (XK_F10          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F11Key                = (XK_F11          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F12Key                = (XK_F12          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F13Key                = (XK_F13          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F14Key                = (XK_F14          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F15Key                = (XK_F15          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F16Key                = (XK_F16          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F17Key                = (XK_F17          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F18Key                = (XK_F18          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F19Key                = (XK_F19          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F20Key                = (XK_F20          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F21Key                = (XK_F21          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F22Key                = (XK_F22          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F23Key                = (XK_F23          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F24Key                = (XK_F24          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F25Key                = (XK_F25          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F26Key                = (XK_F26          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F27Key                = (XK_F27          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F28Key                = (XK_F28          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F29Key                = (XK_F29          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F30Key                = (XK_F30          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F31Key                = (XK_F31          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F32Key                = (XK_F32          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F33Key                = (XK_F33          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F34Key                = (XK_F34          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F35Key                = (XK_F35          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad0            = (XK_KP_0         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad1            = (XK_KP_1         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad2            = (XK_KP_2         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad3            = (XK_KP_3         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad4            = (XK_KP_4         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad5            = (XK_KP_5         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad6            = (XK_KP_6         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad7            = (XK_KP_7         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad8            = (XK_KP_8         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad9            = (XK_KP_9         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadAdd          = (XK_KP_Add       & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadSubtract     = (XK_KP_Subtract  & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadMultiply     = (XK_KP_Multiply  & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadDivide       = (XK_KP_Divide    & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadSeparator    = (XK_KP_Separator & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadDecimalPoint = (XK_KP_Decimal   & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadEquals       = (XK_KP_Equal     & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadDelete       = (XK_KP_Delete    & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::playKey               = ((int) 0xffeeff00)       | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::stopKey               = ((int) 0xffeeff01)       | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::fastForwardKey        = ((int) 0xffeeff02)       | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::rewindKey             = ((int) 0xffeeff03)       | KeySymTranslation::extendedKeyModifier;
 
 static void updateKeyStates (int keycode, bool press) noexcept
 {
@@ -2652,24 +2719,7 @@ void XWindowSystem::showCursor (::Window windowH, Cursor cursorHandle) const
 
 bool XWindowSystem::isKeyCurrentlyDown (int keyCode) const
 {
-    int keysym;
-
-    if (keyCode & Keys::extendedKeyModifier)
-    {
-        keysym = 0xff00 | (keyCode & 0xff);
-    }
-    else
-    {
-        keysym = keyCode;
-
-        if (keysym == (XK_Tab & 0xff)
-            || keysym == (XK_Return & 0xff)
-            || keysym == (XK_Escape & 0xff)
-            || keysym == (XK_BackSpace & 0xff))
-        {
-            keysym |= 0xff00;
-        }
-    }
+    const auto keysym = KeySymTranslation::keySymForKeyPressCode (keyCode);
 
     XWindowSystemUtilities::ScopedXLock xLock;
 
@@ -3633,84 +3683,9 @@ void XWindowSystem::handleKeyPressEvent (LinuxComponentPeer* peer, XKeyEvent& ke
         keyDownChange = (sym != NoSymbol) && ! updateKeyModifiersFromSym (sym, true);
     }
 
-    bool keyPressed = false;
-
-    if ((sym & 0xff00) == 0xff00 || keyCode == XK_ISO_Left_Tab)
-    {
-        switch (sym)  // Translate keypad
-        {
-            case XK_KP_Add:         keyCode = XK_plus;      break;
-            case XK_KP_Subtract:    keyCode = XK_hyphen;    break;
-            case XK_KP_Divide:      keyCode = XK_slash;     break;
-            case XK_KP_Multiply:    keyCode = XK_asterisk;  break;
-            case XK_KP_Enter:       keyCode = XK_Return;    break;
-            case XK_KP_Insert:      keyCode = XK_Insert;    break;
-            case XK_Delete:
-            case XK_KP_Delete:      keyCode = XK_Delete;    break;
-            case XK_KP_Left:        keyCode = XK_Left;      break;
-            case XK_KP_Right:       keyCode = XK_Right;     break;
-            case XK_KP_Up:          keyCode = XK_Up;        break;
-            case XK_KP_Down:        keyCode = XK_Down;      break;
-            case XK_KP_Home:        keyCode = XK_Home;      break;
-            case XK_KP_End:         keyCode = XK_End;       break;
-            case XK_KP_Page_Down:   keyCode = XK_Page_Down; break;
-            case XK_KP_Page_Up:     keyCode = XK_Page_Up;   break;
-
-            case XK_KP_0:           keyCode = XK_0;         break;
-            case XK_KP_1:           keyCode = XK_1;         break;
-            case XK_KP_2:           keyCode = XK_2;         break;
-            case XK_KP_3:           keyCode = XK_3;         break;
-            case XK_KP_4:           keyCode = XK_4;         break;
-            case XK_KP_5:           keyCode = XK_5;         break;
-            case XK_KP_6:           keyCode = XK_6;         break;
-            case XK_KP_7:           keyCode = XK_7;         break;
-            case XK_KP_8:           keyCode = XK_8;         break;
-            case XK_KP_9:           keyCode = XK_9;         break;
-
-            default:                break;
-        }
-
-        switch (keyCode)
-        {
-            case XK_Left:
-            case XK_Right:
-            case XK_Up:
-            case XK_Down:
-            case XK_Page_Up:
-            case XK_Page_Down:
-            case XK_End:
-            case XK_Home:
-            case XK_Delete:
-            case XK_Insert:
-                keyPressed = true;
-                keyCode = (keyCode & 0xff) | Keys::extendedKeyModifier;
-                break;
-
-            case XK_Tab:
-            case XK_Return:
-            case XK_Escape:
-            case XK_BackSpace:
-                keyPressed = true;
-                keyCode &= 0xff;
-                break;
-
-            case XK_ISO_Left_Tab:
-                keyPressed = true;
-                keyCode = XK_Tab & 0xff;
-                break;
-
-            default:
-                if (sym >= XK_F1 && sym <= XK_F35)
-                {
-                    keyPressed = true;
-                    keyCode = static_cast<int> ((sym & 0xff) | Keys::extendedKeyModifier);
-                }
-                break;
-        }
-    }
-
-    if (utf8[0] != 0 || ((sym & 0xff00) == 0 && sym >= 8))
-        keyPressed = true;
+    const auto translation = KeySymTranslation::translateKeySymToKeyPress ((uint32_t) sym, keyCode, utf8[0] != 0);
+    keyCode = translation.keyCode;
+    const auto keyPressed = translation.keyPressed;
 
     if (oldMods != ModifierKeys::getCurrentModifiers())
         peer->handleModifierKeysChange();

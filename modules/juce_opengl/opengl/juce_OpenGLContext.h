@@ -189,7 +189,7 @@ public:
     /** Sets the texture magnification filter. By default the texture magnification
         filter is linear. However, for faster rendering you may want to use the
         'nearest' magnification filter. This option will not affect any textures
-        created before this function was called. */
+        uploaded before this function was called. */
     void setTextureMagnificationFilter (TextureMagnificationFilter magFilterMode) noexcept;
 
      //==============================================================================
@@ -488,10 +488,10 @@ public:
                       bool textureOriginIsBottomLeft,
                       bool blend = true);
 
-    /** Changes the amount of GPU memory that the internal cache for Images is allowed to use. */
+    /** Changes the amount of GPU memory, in bytes, that the internal cache for Images is allowed to use. */
     void setImageCacheSize (size_t cacheSizeBytes) noexcept;
 
-    /** Returns the amount of GPU memory that the internal cache for Images is allowed to use. */
+    /** Returns the amount of GPU memory, in bytes, that the internal cache for Images is allowed to use. */
     size_t getImageCacheSize() const noexcept;
 
     //==============================================================================
@@ -512,6 +512,9 @@ private:
 
     class CachedImage;
     class Attachment;
+
+    ListenerList<NativeContextListener> nativeContextListeners;
+
     NativeContext* nativeContext = nullptr;
     OpenGLRenderer* renderer = nullptr;
     double currentRenderScale = 1.0;
@@ -533,7 +536,7 @@ private:
         Profile::compatibility
        #endif
     , actualProfile{};
-    size_t imageCacheMaxSize = 8 * 1024 * 1024;
+    size_t imageCacheMaxSize = 32 * 1024 * 1024;
     bool renderComponents = true, useMultisampling = false, overrideCanAttach = false;
     bool externallyDriven = false;
     std::atomic<bool> continuousRepaint { false };
@@ -560,6 +563,7 @@ private:
     //==============================================================================
     CachedImage* getCachedImage() const noexcept;
     void execute (AsyncWorker::Ptr, bool);
+    void clearNativeContext();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenGLContext)
 };
