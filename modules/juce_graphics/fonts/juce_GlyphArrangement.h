@@ -76,6 +76,13 @@ public:
     /** Returns the typeface glyph index for the glyph. */
     int getGlyphIndex() const                   { return glyph; }
 
+    /** Returns the font that this glyph was resolved to.
+       This may differ from the font that was passed to GlyphArrangement, as glyphs that the
+       requested font cannot render are resolved through font fallback. getGlyphIndex() is an
+       index into this font's typeface, so the two must always be used together.
+     */
+     const Font& getFont() const noexcept    { return font; }
+
     //==============================================================================
     /** Shifts the glyph's position by a relative amount. */
     void moveBy (float deltaX, float deltaY);
