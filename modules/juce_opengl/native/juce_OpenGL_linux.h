@@ -448,9 +448,6 @@ public:
         const ScopedLock lock;
     };
 
-    void addListener (NativeContextListener&) {}
-    void removeListener (NativeContextListener&) {}
-
 private:
 
     bool configUsesSuitableWindowVisual (EGLConfig config) const
