@@ -99,6 +99,7 @@
   #include <langinfo.h>
   #include <ifaddrs.h>
   #include <sys/resource.h>
+  #include <sys/utsname.h>
 
   #if JUCE_USE_CURL
    #include <curl/curl.h>
@@ -191,6 +192,7 @@
 #include "threads/juce_ReadWriteLock.cpp"
 #include "threads/juce_Thread.cpp"
 #include "threads/juce_ThreadPool.cpp"
+#include "threads/juce_ThreadPoolJob.cpp"
 #include "threads/juce_TimeSliceThread.cpp"
 #include "time/juce_PerformanceCounter.cpp"
 #include "time/juce_RelativeTime.cpp"
@@ -238,6 +240,8 @@
 //==============================================================================
 #elif JUCE_LINUX
  #include "native/juce_CommonFile_linux.cpp"
+ #include "native/juce_DBusSymbols_linux.h"
+ #include "native/juce_DBusSymbols_linux.cpp"
  #include "native/juce_Files_linux.cpp"
  #include "native/juce_Network_linux.cpp"
  #if JUCE_USE_CURL
@@ -250,6 +254,8 @@
 //==============================================================================
 #elif JUCE_BSD
  #include "native/juce_CommonFile_linux.cpp"
+ #include "native/juce_DBusSymbols_linux.h"
+ #include "native/juce_DBusSymbols_linux.cpp"
  #include "native/juce_Files_linux.cpp"
  #include "native/juce_Network_linux.cpp"
  #if JUCE_USE_CURL

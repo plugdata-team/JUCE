@@ -425,7 +425,6 @@ namespace Keys
     static bool numLock = false;
     static bool capsLock = false;
     static char keyStates [32];
-    static constexpr int extendedKeyModifier = 0x10000000;
     static bool modifierKeysAreStale = false;
 
     static void refreshStaleModifierKeys()
@@ -453,78 +452,146 @@ namespace Keys
     }
 }
 
+// The shared translation header writes its keysym values out by hand so it never needs the X11
+// headers. This file has them, so check every value against the real X11 definition here.
+static_assert (KeySymTranslation::keyAsterisk   == XK_asterisk);
+static_assert (KeySymTranslation::keyPlus       == XK_plus);
+static_assert (KeySymTranslation::keySlash      == XK_slash);
+static_assert (KeySymTranslation::key0          == XK_0);
+static_assert (KeySymTranslation::key1          == XK_1);
+static_assert (KeySymTranslation::key2          == XK_2);
+static_assert (KeySymTranslation::key3          == XK_3);
+static_assert (KeySymTranslation::key4          == XK_4);
+static_assert (KeySymTranslation::key5          == XK_5);
+static_assert (KeySymTranslation::key6          == XK_6);
+static_assert (KeySymTranslation::key7          == XK_7);
+static_assert (KeySymTranslation::key8          == XK_8);
+static_assert (KeySymTranslation::key9          == XK_9);
+static_assert (KeySymTranslation::keyHyphen     == XK_hyphen);
+static_assert (KeySymTranslation::keyISOLeftTab == XK_ISO_Left_Tab);
+static_assert (KeySymTranslation::keyBackSpace  == XK_BackSpace);
+static_assert (KeySymTranslation::keyTab        == XK_Tab);
+static_assert (KeySymTranslation::keyReturn     == XK_Return);
+static_assert (KeySymTranslation::keyScrollLock == XK_Scroll_Lock);
+static_assert (KeySymTranslation::keyEscape     == XK_Escape);
+static_assert (KeySymTranslation::keyHome       == XK_Home);
+static_assert (KeySymTranslation::keyLeft       == XK_Left);
+static_assert (KeySymTranslation::keyUp         == XK_Up);
+static_assert (KeySymTranslation::keyRight      == XK_Right);
+static_assert (KeySymTranslation::keyDown       == XK_Down);
+static_assert (KeySymTranslation::keyPageUp     == XK_Page_Up);
+static_assert (KeySymTranslation::keyPageDown   == XK_Page_Down);
+static_assert (KeySymTranslation::keyEnd        == XK_End);
+static_assert (KeySymTranslation::keyInsert     == XK_Insert);
+static_assert (KeySymTranslation::keyNumLock    == XK_Num_Lock);
+static_assert (KeySymTranslation::keyKPEnter    == XK_KP_Enter);
+static_assert (KeySymTranslation::keyKPHome     == XK_KP_Home);
+static_assert (KeySymTranslation::keyKPLeft     == XK_KP_Left);
+static_assert (KeySymTranslation::keyKPUp       == XK_KP_Up);
+static_assert (KeySymTranslation::keyKPRight    == XK_KP_Right);
+static_assert (KeySymTranslation::keyKPDown     == XK_KP_Down);
+static_assert (KeySymTranslation::keyKPPageUp   == XK_KP_Page_Up);
+static_assert (KeySymTranslation::keyKPPageDown == XK_KP_Page_Down);
+static_assert (KeySymTranslation::keyKPEnd      == XK_KP_End);
+static_assert (KeySymTranslation::keyKPInsert   == XK_KP_Insert);
+static_assert (KeySymTranslation::keyKPDelete   == XK_KP_Delete);
+static_assert (KeySymTranslation::keyKPMultiply == XK_KP_Multiply);
+static_assert (KeySymTranslation::keyKPAdd      == XK_KP_Add);
+static_assert (KeySymTranslation::keyKPSubtract == XK_KP_Subtract);
+static_assert (KeySymTranslation::keyKPDivide   == XK_KP_Divide);
+static_assert (KeySymTranslation::keyKP0        == XK_KP_0);
+static_assert (KeySymTranslation::keyKP1        == XK_KP_1);
+static_assert (KeySymTranslation::keyKP2        == XK_KP_2);
+static_assert (KeySymTranslation::keyKP3        == XK_KP_3);
+static_assert (KeySymTranslation::keyKP4        == XK_KP_4);
+static_assert (KeySymTranslation::keyKP5        == XK_KP_5);
+static_assert (KeySymTranslation::keyKP6        == XK_KP_6);
+static_assert (KeySymTranslation::keyKP7        == XK_KP_7);
+static_assert (KeySymTranslation::keyKP8        == XK_KP_8);
+static_assert (KeySymTranslation::keyKP9        == XK_KP_9);
+static_assert (KeySymTranslation::keyF1         == XK_F1);
+static_assert (KeySymTranslation::keyF35        == XK_F35);
+static_assert (KeySymTranslation::keyShiftL     == XK_Shift_L);
+static_assert (KeySymTranslation::keyShiftR     == XK_Shift_R);
+static_assert (KeySymTranslation::keyControlL   == XK_Control_L);
+static_assert (KeySymTranslation::keyControlR   == XK_Control_R);
+static_assert (KeySymTranslation::keyCapsLock   == XK_Caps_Lock);
+static_assert (KeySymTranslation::keyAltL       == XK_Alt_L);
+static_assert (KeySymTranslation::keyAltR       == XK_Alt_R);
+static_assert (KeySymTranslation::keyDelete     == XK_Delete);
+
 const int KeyPress::spaceKey              = XK_space         & 0xff;
 const int KeyPress::returnKey             = XK_Return        & 0xff;
 const int KeyPress::escapeKey             = XK_Escape        & 0xff;
 const int KeyPress::backspaceKey          = XK_BackSpace     & 0xff;
-const int KeyPress::leftKey               = (XK_Left         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::rightKey              = (XK_Right        & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::upKey                 = (XK_Up           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::downKey               = (XK_Down         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::pageUpKey             = (XK_Page_Up      & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::pageDownKey           = (XK_Page_Down    & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::endKey                = (XK_End          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::homeKey               = (XK_Home         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::insertKey             = (XK_Insert       & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::deleteKey             = (XK_Delete       & 0xff) | Keys::extendedKeyModifier;
+const int KeyPress::leftKey               = (XK_Left         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::rightKey              = (XK_Right        & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::upKey                 = (XK_Up           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::downKey               = (XK_Down         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::pageUpKey             = (XK_Page_Up      & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::pageDownKey           = (XK_Page_Down    & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::endKey                = (XK_End          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::homeKey               = (XK_Home         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::insertKey             = (XK_Insert       & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::deleteKey             = (XK_Delete       & 0xff) | KeySymTranslation::extendedKeyModifier;
 const int KeyPress::tabKey                = XK_Tab           & 0xff;
-const int KeyPress::F1Key                 = (XK_F1           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F2Key                 = (XK_F2           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F3Key                 = (XK_F3           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F4Key                 = (XK_F4           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F5Key                 = (XK_F5           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F6Key                 = (XK_F6           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F7Key                 = (XK_F7           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F8Key                 = (XK_F8           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F9Key                 = (XK_F9           & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F10Key                = (XK_F10          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F11Key                = (XK_F11          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F12Key                = (XK_F12          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F13Key                = (XK_F13          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F14Key                = (XK_F14          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F15Key                = (XK_F15          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F16Key                = (XK_F16          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F17Key                = (XK_F17          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F18Key                = (XK_F18          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F19Key                = (XK_F19          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F20Key                = (XK_F20          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F21Key                = (XK_F21          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F22Key                = (XK_F22          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F23Key                = (XK_F23          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F24Key                = (XK_F24          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F25Key                = (XK_F25          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F26Key                = (XK_F26          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F27Key                = (XK_F27          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F28Key                = (XK_F28          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F29Key                = (XK_F29          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F30Key                = (XK_F30          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F31Key                = (XK_F31          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F32Key                = (XK_F32          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F33Key                = (XK_F33          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F34Key                = (XK_F34          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::F35Key                = (XK_F35          & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad0            = (XK_KP_0         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad1            = (XK_KP_1         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad2            = (XK_KP_2         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad3            = (XK_KP_3         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad4            = (XK_KP_4         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad5            = (XK_KP_5         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad6            = (XK_KP_6         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad7            = (XK_KP_7         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad8            = (XK_KP_8         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPad9            = (XK_KP_9         & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadAdd          = (XK_KP_Add       & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadSubtract     = (XK_KP_Subtract  & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadMultiply     = (XK_KP_Multiply  & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadDivide       = (XK_KP_Divide    & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadSeparator    = (XK_KP_Separator & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadDecimalPoint = (XK_KP_Decimal   & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadEquals       = (XK_KP_Equal     & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::numberPadDelete       = (XK_KP_Delete    & 0xff) | Keys::extendedKeyModifier;
-const int KeyPress::playKey               = ((int) 0xffeeff00)       | Keys::extendedKeyModifier;
-const int KeyPress::stopKey               = ((int) 0xffeeff01)       | Keys::extendedKeyModifier;
-const int KeyPress::fastForwardKey        = ((int) 0xffeeff02)       | Keys::extendedKeyModifier;
-const int KeyPress::rewindKey             = ((int) 0xffeeff03)       | Keys::extendedKeyModifier;
+const int KeyPress::F1Key                 = (XK_F1           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F2Key                 = (XK_F2           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F3Key                 = (XK_F3           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F4Key                 = (XK_F4           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F5Key                 = (XK_F5           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F6Key                 = (XK_F6           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F7Key                 = (XK_F7           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F8Key                 = (XK_F8           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F9Key                 = (XK_F9           & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F10Key                = (XK_F10          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F11Key                = (XK_F11          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F12Key                = (XK_F12          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F13Key                = (XK_F13          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F14Key                = (XK_F14          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F15Key                = (XK_F15          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F16Key                = (XK_F16          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F17Key                = (XK_F17          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F18Key                = (XK_F18          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F19Key                = (XK_F19          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F20Key                = (XK_F20          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F21Key                = (XK_F21          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F22Key                = (XK_F22          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F23Key                = (XK_F23          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F24Key                = (XK_F24          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F25Key                = (XK_F25          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F26Key                = (XK_F26          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F27Key                = (XK_F27          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F28Key                = (XK_F28          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F29Key                = (XK_F29          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F30Key                = (XK_F30          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F31Key                = (XK_F31          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F32Key                = (XK_F32          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F33Key                = (XK_F33          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F34Key                = (XK_F34          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::F35Key                = (XK_F35          & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad0            = (XK_KP_0         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad1            = (XK_KP_1         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad2            = (XK_KP_2         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad3            = (XK_KP_3         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad4            = (XK_KP_4         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad5            = (XK_KP_5         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad6            = (XK_KP_6         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad7            = (XK_KP_7         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad8            = (XK_KP_8         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPad9            = (XK_KP_9         & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadAdd          = (XK_KP_Add       & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadSubtract     = (XK_KP_Subtract  & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadMultiply     = (XK_KP_Multiply  & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadDivide       = (XK_KP_Divide    & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadSeparator    = (XK_KP_Separator & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadDecimalPoint = (XK_KP_Decimal   & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadEquals       = (XK_KP_Equal     & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::numberPadDelete       = (XK_KP_Delete    & 0xff) | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::playKey               = ((int) 0xffeeff00)       | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::stopKey               = ((int) 0xffeeff01)       | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::fastForwardKey        = ((int) 0xffeeff02)       | KeySymTranslation::extendedKeyModifier;
+const int KeyPress::rewindKey             = ((int) 0xffeeff03)       | KeySymTranslation::extendedKeyModifier;
 
 static void updateKeyStates (int keycode, bool press) noexcept
 {
@@ -539,6 +606,14 @@ static void updateKeyStates (int keycode, bool press) noexcept
 
 static void updateKeyModifiers (int status) noexcept
 {
+    Keys::numLock  = ((status & Keys::NumLockMask) != 0);
+    Keys::capsLock = ((status & LockMask)          != 0);
+
+    // A pointer event carries the X server's modifier state, which stops tracking the keys once a
+    // Wayland window in this process holds the keyboard.
+    if (! LinuxInputState::get().mayUpdateKeyboardState (LinuxInputBackend::x11))
+        return;
+
     int keyMods = 0;
 
     if ((status & ShiftMask)     != 0) keyMods |= ModifierKeys::shiftModifier;
@@ -546,9 +621,6 @@ static void updateKeyModifiers (int status) noexcept
     if ((status & Keys::AltMask) != 0) keyMods |= ModifierKeys::altModifier;
 
     ModifierKeys::currentModifiers = ModifierKeys::getCurrentModifiers().withOnlyMouseButtons().withFlags (keyMods);
-
-    Keys::numLock  = ((status & Keys::NumLockMask) != 0);
-    Keys::capsLock = ((status & LockMask)          != 0);
 }
 
 static bool updateKeyModifiersFromSym (KeySym sym, bool press) noexcept
@@ -619,20 +691,6 @@ enum
              if (std::tuple (major, minor) < std::tuple (2, 2))
                  return {};
 
-             unsigned char maskData[XIMaskLen (XI_LASTEVENT)] = {};
-             XISetMask (maskData, XI_HierarchyChanged);
-
-             XIEventMask eventMask;
-             eventMask.deviceid = XIAllDevices;
-             eventMask.mask_len = sizeof (maskData);
-             eventMask.mask = maskData;
-
-             X11Symbols::getInstance()->xiSelectEvents (display,
-                                                        X11Symbols::getInstance()->xDefaultRootWindow (display),
-                                                        &eventMask,
-                                                        1);
-             X11Symbols::getInstance()->xFlush (display);
-
              return xinputOpcode;
          });
 
@@ -652,62 +710,41 @@ enum
              return true;
          });
 
-         int numDevices = 0;
-         auto* info = X11Symbols::getInstance()->xiQueryDevice (display, XIAllDevices, &numDevices);
+         // The slave devices behind a master pointer can report buttons and motion separately, as
+         // they do under Xwayland. Selecting on the master devices means that the implicit grab
+         // from a button press also covers the motion that follows it.
+         unsigned char maskData[XIMaskLen (XI_LASTEVENT)] = {};
+         XISetMask (maskData, XI_Motion);
 
-         if (info == nullptr)
-             return;
-
-         const ScopeGuard scope { [info] { X11Symbols::getInstance()->xiFreeDeviceInfo (info); } };
-
-         for (auto& deviceInfo : makeRange (info, info + numDevices))
+         if (shouldHandleMouseClicks)
          {
-             if (deviceInfo.use != XISlavePointer)
-                continue;
-
-             unsigned char maskData[XIMaskLen (XI_LASTEVENT)] = {};
-
-             if (shouldHandleMouseClicks)
-             {
-                 const auto isTouchCapable = std::any_of (deviceInfo.classes,
-                                                          deviceInfo.classes + deviceInfo.num_classes,
-                                                          [] (const auto& x) { return x->type == XITouchClass; });
-
-                 if (isTouchCapable)
-                 {
-                    XISetMask (maskData, XI_TouchBegin);
-                    XISetMask (maskData, XI_TouchUpdate);
-                    XISetMask (maskData, XI_TouchEnd);
-                 }
-             }
-
-             const auto isButtonCapable = std::any_of (deviceInfo.classes,
-                                                       deviceInfo.classes + deviceInfo.num_classes,
-                                                       [] (const auto& x) { return x->type == XIButtonClass; });
-
-             if (isButtonCapable)
-             {
-                 XISetMask (maskData, XI_Motion);
-
-                 if (shouldHandleMouseClicks)
-                 {
-                    XISetMask (maskData, XI_ButtonPress);
-                    XISetMask (maskData, XI_ButtonRelease);
-                 }
-             }
-
-             XIEventMask eventMask;
-             eventMask.deviceid = deviceInfo.deviceid;
-             eventMask.mask_len = sizeof (maskData);
-             eventMask.mask = maskData;
-
-             X11Symbols::getInstance()->xiSelectEvents (display,
-                                                        windowH,
-                                                        &eventMask,
-                                                        1);
+             XISetMask (maskData, XI_ButtonPress);
+             XISetMask (maskData, XI_ButtonRelease);
+             XISetMask (maskData, XI_TouchBegin);
+             XISetMask (maskData, XI_TouchUpdate);
+             XISetMask (maskData, XI_TouchEnd);
          }
 
+         XIEventMask eventMask;
+         eventMask.deviceid = XIAllMasterDevices;
+         eventMask.mask_len = sizeof (maskData);
+         eventMask.mask = maskData;
+
+         X11Symbols::getInstance()->xiSelectEvents (display, windowH, &eventMask, 1);
          X11Symbols::getInstance()->xFlush (display);
+     }
+
+     static std::optional<int> getClientPointer (::Display* display)
+     {
+         if (! setupXI2 (display))
+             return {};
+
+         int deviceId = 0;
+
+         if (! X11Symbols::getInstance()->xiGetClientPointer (display, None, &deviceId))
+             return {};
+
+         return deviceId;
      }
  }
 #endif
@@ -1205,7 +1242,7 @@ public:
 
         // If the window manager has sent a _NET_WM_SYNC_REQUEST, update the sync counters now that
         // the frame has been presented, so it knows the paint for this configure request is complete.
-        if (auto* peer = dynamic_cast<LinuxComponentPeer*> (getPeerFor (window)))
+        if (auto* peer = dynamic_cast<X11ComponentPeer*> (getPeerFor (window)))
         {
             if (peer->newCounter)
             {
@@ -1591,7 +1628,7 @@ ComponentPeer* getPeerFor (::Window windowH)
 }
 
 //==============================================================================
-static std::unordered_map<LinuxComponentPeer*, X11DragState> dragAndDropStateMap;
+static std::unordered_map<X11ComponentPeer*, X11DragState> dragAndDropStateMap;
 
 XWindowSystem::XWindowSystem()
 {
@@ -1655,7 +1692,7 @@ static int getAllEventsMask (bool ignoresMouseClicks)
              | (ignoresMouseClicks ? 0 : (ButtonPressMask | ButtonReleaseMask));
 }
 
-::Window XWindowSystem::createWindow (::Window parentToAddTo, LinuxComponentPeer* peer)
+::Window XWindowSystem::createWindow (::Window parentToAddTo, X11ComponentPeer* peer)
 {
     if (! xIsAvailable)
     {
@@ -1760,8 +1797,6 @@ static int getAllEventsMask (bool ignoresMouseClicks)
     unsigned long info[2] = { 0, 1 };
     xchangeProperty (windowH, atoms.XembedInfo, atoms.XembedInfo, 32, (unsigned char*) info, 2);
 
-    windowHandles.push_back (windowH);
-
    #if JUCE_USE_XINPUT
     XInputHelpers::registerForXI2Events (display, windowH);
    #endif
@@ -1771,13 +1806,7 @@ static int getAllEventsMask (bool ignoresMouseClicks)
 
 void XWindowSystem::destroyWindow (::Window windowH)
 {
-    if (auto it = std::find (windowHandles.begin(), windowHandles.end(), windowH);
-        it != windowHandles.end())
-    {
-        windowHandles.erase (it);
-    }
-
-    auto* peer = dynamic_cast<LinuxComponentPeer*> (getPeerFor (windowH));
+    auto* peer = dynamic_cast<X11ComponentPeer*> (getPeerFor (windowH));
 
     if (peer == nullptr)
     {
@@ -1926,19 +1955,7 @@ std::optional<unsigned long> XWindowSystem::setBounds (::Window windowH, Rectang
             }
         }
 
-        updateConstraints (windowH, *peer);
-
-        XWindowSystemUtilities::ScopedXLock xLock;
-
-        if (auto hints = makeXFreePtr (X11Symbols::getInstance()->xAllocSizeHints()))
-        {
-            hints->flags  = USSize | USPosition;
-            hints->x      = newBounds.getX();
-            hints->y      = newBounds.getY();
-            hints->width  = newBounds.getWidth();
-            hints->height = newBounds.getHeight();
-            X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, hints.get());
-        }
+        updateSizeHints (windowH, *peer, newBounds);
 
         const auto nativeWindowBorder = std::invoke ([&]() -> BorderSize<int>
         {
@@ -1948,6 +1965,7 @@ std::optional<unsigned long> XWindowSystem::setBounds (::Window windowH, Rectang
             return {};
         });
 
+        const XWindowSystemUtilities::ScopedXLock xLock;
         const auto serial = X11Symbols::getInstance()->xNextRequest (display);
         X11Symbols::getInstance()->xMoveResizeWindow (display, windowH,
                                                       newBounds.getX() - nativeWindowBorder.getLeft(),
@@ -1970,7 +1988,7 @@ void XWindowSystem::startHostManagedResize (::Window windowH,
 
     XWindowSystemUtilities::ScopedXLock xLock;
 
-    X11Symbols::getInstance()->xUngrabPointer (display, CurrentTime);
+    ungrabPointer();
 
     const auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
     const auto mouseDown = getCurrentMousePosition();
@@ -2022,23 +2040,74 @@ void XWindowSystem::startHostManagedResize (::Window windowH,
                                            unalignedPointerCast<XEvent*> (&clientMsg));
 }
 
-void XWindowSystem::updateConstraints (::Window windowH) const
+bool XWindowSystem::grabPointerForExternalDrag (::Window windowH, Cursor cursor) const
 {
-    if (auto* peer = getPeerFor (windowH))
-        updateConstraints (windowH, *peer);
+    XWindowSystemUtilities::ScopedXLock xLock;
+
+   #if JUCE_USE_XINPUT
+    // The X server refuses a core grab while the pointer has an XInput grab, and a button press
+    // delivered as an XInput event creates one.
+    if (const auto pointer = XInputHelpers::getClientPointer (display))
+    {
+        unsigned char maskData[XIMaskLen (XI_LASTEVENT)] = {};
+        XISetMask (maskData, XI_Motion);
+        XISetMask (maskData, XI_ButtonRelease);
+
+        XIEventMask eventMask;
+        eventMask.deviceid = *pointer;
+        eventMask.mask_len = sizeof (maskData);
+        eventMask.mask = maskData;
+
+        // All events go to the grabbing window, so that the drag also tracks the pointer and ends
+        // correctly over this application's other windows.
+        return X11Symbols::getInstance()->xiGrabDevice (display, *pointer, windowH, CurrentTime, cursor,
+                                                        GrabModeAsync, GrabModeAsync, False, &eventMask) == GrabSuccess;
+    }
+   #endif
+
+    const auto eventMask = (unsigned int) (Button1MotionMask | ButtonReleaseMask);
+
+    if (X11Symbols::getInstance()->xGrabPointer (display, windowH, True, eventMask,
+                                                 GrabModeAsync, GrabModeAsync, None, None, CurrentTime) != GrabSuccess)
+        return false;
+
+    // No other method of changing the pointer seems to work, this call is needed from this very context
+    X11Symbols::getInstance()->xChangeActivePointerGrab (display, eventMask, cursor, CurrentTime);
+    return true;
 }
 
-void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer) const
+void XWindowSystem::ungrabPointer() const
+{
+    XWindowSystemUtilities::ScopedXLock xLock;
+
+   #if JUCE_USE_XINPUT
+    if (const auto pointer = XInputHelpers::getClientPointer (display))
+    {
+        X11Symbols::getInstance()->xiUngrabDevice (display, *pointer, CurrentTime);
+        return;
+    }
+   #endif
+
+    X11Symbols::getInstance()->xUngrabPointer (display, CurrentTime);
+}
+
+void XWindowSystem::updateSizeHints (::Window windowH, ComponentPeer& peer, Rectangle<int> physicalBounds) const
 {
     XWindowSystemUtilities::ScopedXLock xLock;
 
     if (auto hints = makeXFreePtr (X11Symbols::getInstance()->xAllocSizeHints()))
     {
+        hints->flags  = USSize | USPosition;
+        hints->x      = physicalBounds.getX();
+        hints->y      = physicalBounds.getY();
+        hints->width  = physicalBounds.getWidth();
+        hints->height = physicalBounds.getHeight();
+
         if ((peer.getStyleFlags() & ComponentPeer::windowIsResizable) == 0)
         {
-            hints->min_width  = hints->max_width  = (int) (peer.getPlatformScaleFactor() * peer.getBounds().getWidth());
-            hints->min_height = hints->max_height = (int) (peer.getPlatformScaleFactor() * peer.getBounds().getHeight());
-            hints->flags = PMinSize | PMaxSize;
+            hints->min_width  = hints->max_width  = physicalBounds.getWidth();
+            hints->min_height = hints->max_height = physicalBounds.getHeight();
+            hints->flags |= PMinSize | PMaxSize;
         }
         else if (auto* c = peer.getConstrainer())
         {
@@ -2053,11 +2122,35 @@ void XWindowSystem::updateConstraints (::Window windowH, ComponentPeer& peer) co
             const auto factor       = peer.getPlatformScaleFactor();
             const auto leftAndRight = windowBorder.getLeftAndRight();
             const auto topAndBottom = windowBorder.getTopAndBottom();
-            hints->min_width  = jmax (1, (int) (factor * c->getMinimumWidth())  - leftAndRight);
-            hints->max_width  = jmax (1, (int) (factor * c->getMaximumWidth())  - leftAndRight);
-            hints->min_height = jmax (1, (int) (factor * c->getMinimumHeight()) - topAndBottom);
-            hints->max_height = jmax (1, (int) (factor * c->getMaximumHeight()) - topAndBottom);
-            hints->flags = PMinSize | PMaxSize;
+
+            const auto scaledLimit = [factor] (int limit, int border)
+            {
+                const auto scaled = jmin ((double) std::numeric_limits<int>::max(), factor * limit);
+                return jmax (1, (int) scaled - border);
+            };
+
+            // The window manager can't call the constrainer during a resize, so find the limits
+            // by checking out-of-range sizes. This accounts for constrainers that wrap another
+            // constrainer.
+            const auto current = windowBorder.addedTo ((physicalBounds.toDouble() / factor).toNearestInt());
+            const auto largeExtent = 0x00ffffff;
+            const Rectangle<int> unlimited { -largeExtent, -largeExtent, 4 * largeExtent, 4 * largeExtent };
+
+            const auto constrainedSize = [&] (int extent)
+            {
+                auto bounds = current.withSize (extent, extent);
+                c->checkBounds (bounds, current, unlimited, false, false, true, true);
+                return bounds;
+            };
+
+            const auto smallest = constrainedSize (0);
+            const auto largest  = constrainedSize (largeExtent);
+
+            hints->min_width  = scaledLimit (smallest.getWidth(),  leftAndRight);
+            hints->max_width  = scaledLimit (largest.getWidth(),   leftAndRight);
+            hints->min_height = scaledLimit (smallest.getHeight(), topAndBottom);
+            hints->max_height = scaledLimit (largest.getHeight(),  topAndBottom);
+            hints->flags |= PMinSize | PMaxSize;
         }
 
         X11Symbols::getInstance()->xSetWMNormalHints (display, windowH, hints.get());
@@ -2246,7 +2339,7 @@ bool XWindowSystem::isFocused (::Window windowH) const
     jassert (windowH != 0);
 
    #if JUCE_X11_SUPPORTS_XEMBED
-    if (auto w = (::Window) juce_getCurrentFocusWindow (dynamic_cast<LinuxComponentPeer*> (getPeerFor (windowH))))
+    if (auto w = (::Window) juce_getCurrentFocusWindow (dynamic_cast<X11ComponentPeer*> (getPeerFor (windowH))))
         return w;
    #endif
 
@@ -2652,24 +2745,7 @@ void XWindowSystem::showCursor (::Window windowH, Cursor cursorHandle) const
 
 bool XWindowSystem::isKeyCurrentlyDown (int keyCode) const
 {
-    int keysym;
-
-    if (keyCode & Keys::extendedKeyModifier)
-    {
-        keysym = 0xff00 | (keyCode & 0xff);
-    }
-    else
-    {
-        keysym = keyCode;
-
-        if (keysym == (XK_Tab & 0xff)
-            || keysym == (XK_Return & 0xff)
-            || keysym == (XK_Escape & 0xff)
-            || keysym == (XK_BackSpace & 0xff))
-        {
-            keysym |= 0xff00;
-        }
-    }
+    const auto keysym = KeySymTranslation::keySymForKeyPressCode (keyCode);
 
     XWindowSystemUtilities::ScopedXLock xLock;
 
@@ -2710,10 +2786,18 @@ ModifierKeys XWindowSystem::getNativeRealtimeModifiers() const
         ((mask & ControlMask)   != 0 ? keyboardMods : keyboardClearMods) |= ModifierKeys::ctrlModifier;
     }
 
-    ModifierKeys::currentModifiers = ModifierKeys::getCurrentModifiers().withoutMouseButtons()
-                                                                        .withFlags (mouseMods)
-                                                                        .withoutFlags (keyboardClearMods)
-                                                                        .withFlags (keyboardMods);
+    // The X server only sees the buttons and keys of the devices its windows hold. A Wayland window
+    // in this process may hold the other device, and its state must survive this query.
+    const auto& inputState = LinuxInputState::get();
+    auto mods = ModifierKeys::getCurrentModifiers();
+
+    if (inputState.mayUpdatePointerState (LinuxInputBackend::x11))
+        mods = mods.withoutMouseButtons().withFlags (mouseMods);
+
+    if (inputState.mayUpdateKeyboardState (LinuxInputBackend::x11))
+        mods = mods.withoutFlags (keyboardClearMods).withFlags (keyboardMods);
+
+    ModifierKeys::currentModifiers = mods;
 
     // We are keeping track of the state of modifier keys and mouse buttons with the assumption that
     // for every mouse down we are going to receive a mouse up etc.
@@ -2961,8 +3045,13 @@ void XWindowSystem::deleteKeyProxy (::Window keyProxy) const
     {}
 }
 
-bool XWindowSystem::externalDragFileInit (LinuxComponentPeer* peer, const StringArray& files, bool, std::function<void()>&& callback) const
+bool XWindowSystem::externalDragFileInit (ComponentPeer* sourcePeer, const StringArray& files, bool, std::function<void()>&& callback) const
 {
+    auto* peer = dynamic_cast<X11ComponentPeer*> (sourcePeer);
+
+    if (peer == nullptr)
+        return false;
+
     auto& dragState = dragAndDropStateMap[peer];
 
     if (dragState.isDragging())
@@ -2981,8 +3070,13 @@ bool XWindowSystem::externalDragFileInit (LinuxComponentPeer* peer, const String
     return dragState.externalDragInit ((::Window) peer->getNativeHandle(), false, uriList.joinIntoString ("\r\n"), std::move (callback));
 }
 
-bool XWindowSystem::externalDragTextInit (LinuxComponentPeer* peer, const String& text, std::function<void()>&& callback) const
+bool XWindowSystem::externalDragTextInit (ComponentPeer* sourcePeer, const String& text, std::function<void()>&& callback) const
 {
+    auto* peer = dynamic_cast<X11ComponentPeer*> (sourcePeer);
+
+    if (peer == nullptr)
+        return false;
+
     auto& dragState = dragAndDropStateMap[peer];
 
     if (dragState.isDragging())
@@ -3101,8 +3195,8 @@ bool XWindowSystem::isFrontWindow (::Window windowH) const
 
     for (int i = (int) windowListSize; --i >= 0;)
     {
-        if (auto* peer = dynamic_cast<LinuxComponentPeer*> (getPeerFor (windowList[i])))
-            return peer == dynamic_cast<LinuxComponentPeer*> (getPeerFor (windowH));
+        if (auto* peer = dynamic_cast<X11ComponentPeer*> (getPeerFor (windowList[i])))
+            return peer == dynamic_cast<X11ComponentPeer*> (getPeerFor (windowH));
     }
 
     return false;
@@ -3537,7 +3631,7 @@ void juce_deleteKeyProxyWindow (::Window keyProxy)
 
 //==============================================================================
 template <typename PosType>
-static Point<float> getLogicalMousePos (Point<PosType> pt, const LinuxComponentPeer& peer) noexcept
+static Point<float> getLogicalMousePos (Point<PosType> pt, const X11ComponentPeer& peer) noexcept
 {
     return pt.toFloat() / peer.getPlatformScaleFactor();
 }
@@ -3553,7 +3647,7 @@ static int64 getEventTime (::Time t)
     return eventTimeOffset + thisMessageTime;
 }
 
-void XWindowSystem::handleWindowMessage (LinuxComponentPeer* peer, XEvent& event) const
+void XWindowSystem::handleWindowMessage (X11ComponentPeer* peer, XEvent& event) const
 {
     switch (event.xany.type)
     {
@@ -3601,7 +3695,7 @@ void XWindowSystem::handleWindowMessage (LinuxComponentPeer* peer, XEvent& event
     }
 }
 
-void XWindowSystem::handleKeyPressEvent (LinuxComponentPeer* peer, XKeyEvent& keyEvent) const
+void XWindowSystem::handleKeyPressEvent (X11ComponentPeer* peer, XKeyEvent& keyEvent) const
 {
     auto oldMods = ModifierKeys::getCurrentModifiers();
     Keys::refreshStaleModifierKeys();
@@ -3633,84 +3727,9 @@ void XWindowSystem::handleKeyPressEvent (LinuxComponentPeer* peer, XKeyEvent& ke
         keyDownChange = (sym != NoSymbol) && ! updateKeyModifiersFromSym (sym, true);
     }
 
-    bool keyPressed = false;
-
-    if ((sym & 0xff00) == 0xff00 || keyCode == XK_ISO_Left_Tab)
-    {
-        switch (sym)  // Translate keypad
-        {
-            case XK_KP_Add:         keyCode = XK_plus;      break;
-            case XK_KP_Subtract:    keyCode = XK_hyphen;    break;
-            case XK_KP_Divide:      keyCode = XK_slash;     break;
-            case XK_KP_Multiply:    keyCode = XK_asterisk;  break;
-            case XK_KP_Enter:       keyCode = XK_Return;    break;
-            case XK_KP_Insert:      keyCode = XK_Insert;    break;
-            case XK_Delete:
-            case XK_KP_Delete:      keyCode = XK_Delete;    break;
-            case XK_KP_Left:        keyCode = XK_Left;      break;
-            case XK_KP_Right:       keyCode = XK_Right;     break;
-            case XK_KP_Up:          keyCode = XK_Up;        break;
-            case XK_KP_Down:        keyCode = XK_Down;      break;
-            case XK_KP_Home:        keyCode = XK_Home;      break;
-            case XK_KP_End:         keyCode = XK_End;       break;
-            case XK_KP_Page_Down:   keyCode = XK_Page_Down; break;
-            case XK_KP_Page_Up:     keyCode = XK_Page_Up;   break;
-
-            case XK_KP_0:           keyCode = XK_0;         break;
-            case XK_KP_1:           keyCode = XK_1;         break;
-            case XK_KP_2:           keyCode = XK_2;         break;
-            case XK_KP_3:           keyCode = XK_3;         break;
-            case XK_KP_4:           keyCode = XK_4;         break;
-            case XK_KP_5:           keyCode = XK_5;         break;
-            case XK_KP_6:           keyCode = XK_6;         break;
-            case XK_KP_7:           keyCode = XK_7;         break;
-            case XK_KP_8:           keyCode = XK_8;         break;
-            case XK_KP_9:           keyCode = XK_9;         break;
-
-            default:                break;
-        }
-
-        switch (keyCode)
-        {
-            case XK_Left:
-            case XK_Right:
-            case XK_Up:
-            case XK_Down:
-            case XK_Page_Up:
-            case XK_Page_Down:
-            case XK_End:
-            case XK_Home:
-            case XK_Delete:
-            case XK_Insert:
-                keyPressed = true;
-                keyCode = (keyCode & 0xff) | Keys::extendedKeyModifier;
-                break;
-
-            case XK_Tab:
-            case XK_Return:
-            case XK_Escape:
-            case XK_BackSpace:
-                keyPressed = true;
-                keyCode &= 0xff;
-                break;
-
-            case XK_ISO_Left_Tab:
-                keyPressed = true;
-                keyCode = XK_Tab & 0xff;
-                break;
-
-            default:
-                if (sym >= XK_F1 && sym <= XK_F35)
-                {
-                    keyPressed = true;
-                    keyCode = static_cast<int> ((sym & 0xff) | Keys::extendedKeyModifier);
-                }
-                break;
-        }
-    }
-
-    if (utf8[0] != 0 || ((sym & 0xff00) == 0 && sym >= 8))
-        keyPressed = true;
+    const auto translation = KeySymTranslation::translateKeySymToKeyPress ((uint32_t) sym, keyCode, utf8[0] != 0);
+    keyCode = translation.keyCode;
+    const auto keyPressed = translation.keyPressed;
 
     if (oldMods != ModifierKeys::getCurrentModifiers())
         peer->handleModifierKeysChange();
@@ -3722,7 +3741,7 @@ void XWindowSystem::handleKeyPressEvent (LinuxComponentPeer* peer, XKeyEvent& ke
         peer->handleKeyPress (keyCode, unicodeChar);
 }
 
-void XWindowSystem::handleKeyReleaseEvent (LinuxComponentPeer* peer, const XKeyEvent& keyEvent) const
+void XWindowSystem::handleKeyReleaseEvent (X11ComponentPeer* peer, const XKeyEvent& keyEvent) const
 {
     auto isKeyReleasePartOfAutoRepeat = [&]() -> bool
     {
@@ -3761,7 +3780,7 @@ void XWindowSystem::handleKeyReleaseEvent (LinuxComponentPeer* peer, const XKeyE
     }
 }
 
-void XWindowSystem::handleWheelEvent (LinuxComponentPeer* peer, int64 eventTime, Point<float> logicalMousePos, float amount) const
+void XWindowSystem::handleWheelEvent (X11ComponentPeer* peer, int64 eventTime, Point<float> logicalMousePos, float amount) const
 {
     MouseWheelDetails wheel;
     wheel.deltaX = 0.0f;
@@ -3773,7 +3792,7 @@ void XWindowSystem::handleWheelEvent (LinuxComponentPeer* peer, int64 eventTime,
     peer->handleMouseWheel (MouseInputSource::InputSourceType::mouse, logicalMousePos, eventTime, wheel);
 }
 
-void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, int64 eventTime, Point<float> logicalMousePos, int buttonModifierFlag) const
+void XWindowSystem::handleButtonPressEvent (X11ComponentPeer* peer, int64 eventTime, Point<float> logicalMousePos, int buttonModifierFlag) const
 {
     ModifierKeys::currentModifiers = ModifierKeys::getCurrentModifiers().withFlags (buttonModifierFlag);
     peer->toFront (true);
@@ -3782,7 +3801,7 @@ void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, int64 even
                             MouseInputSource::defaultOrientation, eventTime, {});
 }
 
-void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, int state, int button, ::Time time, Point<double> pt) const
+void XWindowSystem::handleButtonPressEvent (X11ComponentPeer* peer, int state, int button, ::Time time, Point<double> pt) const
 {
     updateKeyModifiers (state);
 
@@ -3808,13 +3827,13 @@ void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, int state,
     }
 }
 
-void XWindowSystem::handleButtonPressEvent (LinuxComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent) const
+void XWindowSystem::handleButtonPressEvent (X11ComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent) const
 {
     handleButtonPressEvent (peer, (int) buttonPressEvent.state, (int) buttonPressEvent.button, buttonPressEvent.time,
                             Point { buttonPressEvent.x, buttonPressEvent.y }.toDouble());
 }
 
-void XWindowSystem::handleButtonReleaseEvent (LinuxComponentPeer* peer, int state, int button, ::Time time, Point<double> pt) const
+void XWindowSystem::handleButtonReleaseEvent (X11ComponentPeer* peer, int state, int button, ::Time time, Point<double> pt) const
 {
     updateKeyModifiers (state);
 
@@ -3846,13 +3865,13 @@ void XWindowSystem::handleButtonReleaseEvent (LinuxComponentPeer* peer, int stat
                             ModifierKeys::getCurrentModifiers(), MouseInputSource::defaultPressure, MouseInputSource::defaultOrientation, getEventTime (time));
 }
 
-void XWindowSystem::handleButtonReleaseEvent (LinuxComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent) const
+void XWindowSystem::handleButtonReleaseEvent (X11ComponentPeer* peer, const XButtonPressedEvent& buttonPressEvent) const
 {
     handleButtonReleaseEvent (peer, (int) buttonPressEvent.state, (int) buttonPressEvent.button, buttonPressEvent.time,
                               Point { buttonPressEvent.x, buttonPressEvent.y }.toDouble());
 }
 
-void XWindowSystem::handleMotionNotifyEvent (LinuxComponentPeer* peer, int state, ::Time time, Point<double> pt) const
+void XWindowSystem::handleMotionNotifyEvent (X11ComponentPeer* peer, int state, ::Time time, Point<double> pt) const
 {
     updateKeyModifiers (state);
     Keys::refreshStaleMouseKeys();
@@ -3867,14 +3886,17 @@ void XWindowSystem::handleMotionNotifyEvent (LinuxComponentPeer* peer, int state
                             MouseInputSource::defaultOrientation, getEventTime (time));
 }
 
-void XWindowSystem::handleMotionNotifyEvent (LinuxComponentPeer* peer, const XPointerMovedEvent& movedEvent) const
+void XWindowSystem::handleMotionNotifyEvent (X11ComponentPeer* peer, const XPointerMovedEvent& movedEvent) const
 {
     handleMotionNotifyEvent (peer, (int) movedEvent.state, movedEvent.time,
                              Point { movedEvent.x, movedEvent.y }.toDouble());
 }
 
-void XWindowSystem::handleEnterNotifyEvent (LinuxComponentPeer* peer, const XEnterWindowEvent& enterEvent) const
+void XWindowSystem::handleEnterNotifyEvent (X11ComponentPeer* peer, const XEnterWindowEvent& enterEvent) const
 {
+    LinuxInputState::get().pointerEntered (LinuxInputBackend::x11);
+    peer->containsPointer = true;
+
     if (peer->getParentWindow() != 0)
         peer->updateWindowBounds();
 
@@ -3887,7 +3909,7 @@ void XWindowSystem::handleEnterNotifyEvent (LinuxComponentPeer* peer, const XEnt
     }
 }
 
-void XWindowSystem::handleLeaveNotifyEvent (LinuxComponentPeer* peer, const XLeaveWindowEvent& leaveEvent) const
+void XWindowSystem::handleLeaveNotifyEvent (X11ComponentPeer* peer, const XLeaveWindowEvent& leaveEvent) const
 {
     // Suppress the normal leave if we've got a pointer grab, or if
     // it's a bogus one caused by clicking a mouse button when running
@@ -3895,6 +3917,7 @@ void XWindowSystem::handleLeaveNotifyEvent (LinuxComponentPeer* peer, const XLea
     if (((! ModifierKeys::getCurrentModifiers().isAnyMouseButtonDown()) && leaveEvent.mode == NotifyNormal)
          || leaveEvent.mode == NotifyUngrab)
     {
+        peer->containsPointer = false;
         updateKeyModifiers ((int) leaveEvent.state);
         peer->handleMouseEvent (MouseInputSource::InputSourceType::mouse, getLogicalMousePos (Point { leaveEvent.x, leaveEvent.y }, *peer),
                                 ModifierKeys::getCurrentModifiers(), MouseInputSource::defaultPressure,
@@ -3902,18 +3925,22 @@ void XWindowSystem::handleLeaveNotifyEvent (LinuxComponentPeer* peer, const XLea
     }
 }
 
-void XWindowSystem::handleFocusInEvent (LinuxComponentPeer* peer) const
+void XWindowSystem::handleFocusInEvent (X11ComponentPeer* peer) const
 {
+    LinuxInputState::get().keyboardEntered (LinuxInputBackend::x11);
     peer->isActiveApplication = true;
 
     if (isFocused ((::Window) peer->getNativeHandle()) && ! peer->focused)
     {
         peer->focused = true;
+
+        // The modifier keys may have changed while another window held the keyboard.
+        getNativeRealtimeModifiers();
         peer->handleFocusGain();
     }
 }
 
-void XWindowSystem::handleFocusOutEvent (LinuxComponentPeer* peer) const
+void XWindowSystem::handleFocusOutEvent (X11ComponentPeer* peer) const
 {
     if (! isFocused ((::Window) peer->getNativeHandle()) && peer->focused)
     {
@@ -3924,7 +3951,7 @@ void XWindowSystem::handleFocusOutEvent (LinuxComponentPeer* peer) const
     }
 }
 
-void XWindowSystem::handleExposeEvent (LinuxComponentPeer* peer, XExposeEvent& exposeEvent) const
+void XWindowSystem::handleExposeEvent (X11ComponentPeer* peer, XExposeEvent& exposeEvent) const
 {
     // Batch together all pending expose events
     XEvent nextEvent;
@@ -3966,7 +3993,7 @@ void XWindowSystem::handleExposeEvent (LinuxComponentPeer* peer, XExposeEvent& e
     }
 }
 
-void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer) const
+void XWindowSystem::dismissBlockingModals (X11ComponentPeer* peer) const
 {
     if (peer->getComponent().isCurrentlyBlockedByAnotherModalComponent())
         if (auto* currentModalComp = Component::getCurrentlyModalComponent())
@@ -3975,7 +4002,7 @@ void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer) const
                     currentModalComp->inputAttemptWhenModal();
 }
 
-void XWindowSystem::handleConfigureNotifyEvent (LinuxComponentPeer* peer, XConfigureEvent& confEvent) const
+void XWindowSystem::handleConfigureNotifyEvent (X11ComponentPeer* peer, XConfigureEvent& confEvent) const
 {
     // If the incoming event serial is smaller than the serial of a move/resize request we sent previously,
     // then we should ignore the incoming event because it will conflict with the pending request.
@@ -3998,7 +4025,7 @@ void XWindowSystem::handleConfigureNotifyEvent (LinuxComponentPeer* peer, XConfi
         peer->handleBroughtToFront();
 }
 
-void XWindowSystem::handleGravityNotify (LinuxComponentPeer* peer) const
+void XWindowSystem::handleGravityNotify (X11ComponentPeer* peer) const
 {
     peer->updateWindowBounds();
     peer->updateBorderSize();
@@ -4053,7 +4080,7 @@ bool XWindowSystem::isFullScreen (Window w) const
            && std::find (data, end, atoms.windowStateMaximisedVert) != end;
 }
 
-void XWindowSystem::propertyNotifyEvent (LinuxComponentPeer* peer, const XPropertyEvent& event) const
+void XWindowSystem::propertyNotifyEvent (X11ComponentPeer* peer, const XPropertyEvent& event) const
 {
     if ((event.atom == atoms.state && isIconic (event.window))
         || (event.atom == atoms.windowState && isHidden (event.window)))
@@ -4076,7 +4103,7 @@ void XWindowSystem::handleMappingNotify (XMappingEvent& mappingEvent) const
     }
 }
 
-void XWindowSystem::handleClientMessageEvent (LinuxComponentPeer* peer, XClientMessageEvent& clientMsg, XEvent& event) const
+void XWindowSystem::handleClientMessageEvent (X11ComponentPeer* peer, XClientMessageEvent& clientMsg, XEvent& event) const
 {
     if (clientMsg.message_type == atoms.protocols && clientMsg.format == 32)
     {
@@ -4114,7 +4141,8 @@ void XWindowSystem::handleClientMessageEvent (LinuxComponentPeer* peer, XClientM
         }
         else if (atom == atoms.protocolList [XWindowSystemUtilities::Atoms::DELETE_WINDOW])
         {
-            peer->handleUserClosingWindow();
+            if (! peer->getComponent().isCurrentlyBlockedByAnotherModalComponent())
+                peer->handleUserClosingWindow();
         }
         else if (atom == atoms.protocolList [XWindowSystemUtilities::Atoms::SYNC_REQUEST])
         {
@@ -4154,7 +4182,7 @@ void XWindowSystem::handleClientMessageEvent (LinuxComponentPeer* peer, XClientM
     }
 }
 
-void XWindowSystem::handleXEmbedMessage (LinuxComponentPeer* peer, XClientMessageEvent& clientMsg) const
+void XWindowSystem::handleXEmbedMessage (X11ComponentPeer* peer, XClientMessageEvent& clientMsg) const
 {
     switch (clientMsg.data.l[1])
     {
@@ -4177,7 +4205,7 @@ void XWindowSystem::handleXEmbedMessage (LinuxComponentPeer* peer, XClientMessag
 
 
 #if JUCE_USE_XINPUT
-void XWindowSystem::handleXIDeviceEvent (LinuxComponentPeer* peer, int eventType, XIDeviceEvent& deviceEvent) const
+void XWindowSystem::handleXIDeviceEvent (X11ComponentPeer* peer, int eventType, XIDeviceEvent& deviceEvent) const
 {
     const Point eventPos { deviceEvent.event_x, deviceEvent.event_y };
 
@@ -4215,6 +4243,11 @@ void XWindowSystem::handleXIDeviceEvent (LinuxComponentPeer* peer, int eventType
     const auto touchPos = getLogicalMousePos (eventPos, *peer);
     const auto time = getEventTime (deviceEvent.time);
 
+    const auto touchFlags = eventType == XI_TouchEnd ? 0 : ModifierKeys::leftButtonModifier;
+    ModifierKeys::currentModifiers = ModifierKeys::getCurrentModifiers().withoutMouseButtons()
+                                                                        .withFlags (touchFlags);
+    const auto modsToSend = ModifierKeys::getCurrentModifiers();
+
     const auto sendTouchEvent = [peer, time, touchIndex] (Point<float> pos, ModifierKeys mods)
     {
         peer->handleMouseEvent (MouseInputSource::InputSourceType::touch,
@@ -4235,7 +4268,7 @@ void XWindowSystem::handleXIDeviceEvent (LinuxComponentPeer* peer, int eventType
         case XI_TouchBegin:
         {
             // This forces a mouse-enter/up event, in case we didn't get one before.
-            if (! sendTouchEvent (touchPos, ModifierKeys{}))
+            if (! sendTouchEvent (touchPos, modsToSend.withoutMouseButtons()))
                 return;
 
             break;
@@ -4247,24 +4280,16 @@ void XWindowSystem::handleXIDeviceEvent (LinuxComponentPeer* peer, int eventType
         }
     }
 
-    const auto mouseKeys = eventType == XI_TouchEnd ? ModifierKeys{}
-                                                    : ModifierKeys{}.withFlags (ModifierKeys::leftButtonModifier);
-    if (! sendTouchEvent (touchPos, mouseKeys))
+    if (! sendTouchEvent (touchPos, modsToSend))
         return;
 
     if (eventType == XI_TouchEnd)
-        sendTouchEvent (MouseInputSource::offscreenMousePos, ModifierKeys{});
-}
-
-void XWindowSystem::updateXInputDevices() const
-{
-    for (auto wh : windowHandles)
-        XInputHelpers::registerForXI2Events (display, wh);
+        sendTouchEvent (MouseInputSource::offscreenMousePos, modsToSend.withoutMouseButtons());
 }
 #endif
 
 //==============================================================================
-void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer, const XConfigureEvent& configure) const
+void XWindowSystem::dismissBlockingModals (X11ComponentPeer* peer, const XConfigureEvent& configure) const
 {
     if (peer == nullptr)
         return;
@@ -4310,7 +4335,13 @@ void XWindowSystem::windowMessageReceive (XEvent& event)
                     case ButtonPress:
                     case ButtonRelease:
                     case MotionNotify:
-                        return;
+                        // Events with send_event set were synthesised by another client, such as GNOME
+                        // Shell forwarding a click to a tray icon. They have no XInput counterpart, so
+                        // they must be handled here.
+                        if (! event.xany.send_event)
+                            return;
+
+                        break;
                 }
 
                 if (event.xcookie.type == GenericEvent && event.xcookie.extension == xInputOpcode)
@@ -4324,8 +4355,10 @@ void XWindowSystem::windowMessageReceive (XEvent& event)
 
                     switch (event.xcookie.evtype)
                     {
-                        case XI_HierarchyChanged:
-                            instance->updateXInputDevices();
+                        case XI_Enter:
+                        case XI_Leave:
+                            // A grab on a master device reports pointer crossings as XInput events
+                            // too. The core events for the same crossings are the ones handled.
                             break;
 
                         case XI_ButtonPress:
@@ -4335,7 +4368,7 @@ void XWindowSystem::windowMessageReceive (XEvent& event)
                         case XI_TouchEnd:
                         case XI_TouchUpdate:
                             if (auto* deviceEvent = (XIDeviceEvent*) event.xcookie.data;
-                                auto* peer = dynamic_cast<LinuxComponentPeer*> (getPeerFor (deviceEvent->event)))
+                                auto* peer = dynamic_cast<X11ComponentPeer*> (getPeerFor (deviceEvent->event)))
                                 instance->handleXIDeviceEvent (peer, event.xcookie.evtype, *deviceEvent);
 
                             break;
@@ -4351,7 +4384,7 @@ void XWindowSystem::windowMessageReceive (XEvent& event)
             }
            #endif
 
-            if (auto* peer = dynamic_cast<LinuxComponentPeer*> (getPeerFor (event.xany.window)))
+            if (auto* peer = dynamic_cast<X11ComponentPeer*> (getPeerFor (event.xany.window)))
             {
                 instance->handleWindowMessage (peer, event);
                 return;
@@ -4361,7 +4394,7 @@ void XWindowSystem::windowMessageReceive (XEvent& event)
                 return;
 
             for (auto i = ComponentPeer::getNumPeers(); --i >= 0;)
-                instance->dismissBlockingModals (dynamic_cast<LinuxComponentPeer*> (ComponentPeer::getPeer (i)),
+                instance->dismissBlockingModals (dynamic_cast<X11ComponentPeer*> (ComponentPeer::getPeer (i)),
                                                  event.xconfigure);
         }
     }

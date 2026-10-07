@@ -174,6 +174,11 @@ public:
         else
             nativeContext.reset();
 
+       #if JUCE_LINUX || JUCE_BSD
+        if (nativeContext != nullptr)
+            nativeContext->setFrameReadyCallback ([thread = renderThread] { thread->triggerRepaint(); });
+       #endif
+
         refreshDisplayLinkConnection();
     }
 
@@ -332,11 +337,11 @@ public:
 
         auto previousFrameBufferTarget = OpenGLFrameBuffer::getCurrentFrameBufferTarget();
         cachedImageFrameBuffer.makeCurrentRenderingTarget();
-        auto imageH = cachedImageFrameBuffer.getHeight();
+        const auto textureH = cachedImageFrameBuffer.getTextureHeight();
 
         for (auto& r : list)
         {
-            glScissor (r.getX(), imageH - r.getBottom(), r.getWidth(), r.getHeight());
+            glScissor (r.getX(), textureH - r.getBottom(), r.getWidth(), r.getHeight());
             glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         }
 
@@ -408,6 +413,16 @@ public:
         if (! isFlagSet (stateToUse, StateFlags::pendingRender) && noAutomaticRepaint)
             return RenderStatus::noWork;
 
+       #if JUCE_LINUX || JUCE_BSD
+        if (! nativeContext->isReadyForRender())
+        {
+            // GL worker jobs remain usable while the compositor has paused drawing.
+            doWorkWhileWaitingForLock (contextActivator);
+            state |= stateToUse;
+            return RenderStatus::noWork;
+        }
+       #endif
+
         const auto isUpdating = isFlagSet (stateToUse, StateFlags::paintComponents);
 
         if (context.renderComponents && isUpdating)
@@ -458,7 +473,7 @@ public:
                 glViewport (0, 0, viewportArea.getWidth(), viewportArea.getHeight());
                 context.currentRenderScale = currentAreaAndScale.scale;
                 context.renderer->renderOpenGL();
-                clearGLError();
+                clearDebugGLError();
             }
 
             if (context.renderComponents)
@@ -601,21 +616,18 @@ public:
         if (context.actualProfile == OpenGLProfile::compatibility)
             glEnable (GL_TEXTURE_2D);
 
-       #if JUCE_WINDOWS
         // some old drivers are missing this function, so try to at least avoid a crash here,
         // but if you hit this assertion you may want to have your own version check before using the
         // component rendering stuff on such old drivers.
-        jassert (context.extensions.glActiveTexture != nullptr);
-        if (context.extensions.glActiveTexture != nullptr)
-       #endif
-        {
+        jassert (OpenGLHelpers::isFunctionAvailable (context.extensions.glActiveTexture));
+        if (OpenGLHelpers::isFunctionAvailable (context.extensions.glActiveTexture))
             context.extensions.glActiveTexture (GL_TEXTURE0);
-        }
 
         glBindTexture (GL_TEXTURE_2D, cachedImageFrameBuffer.getTextureID());
 
         const Rectangle<int> cacheBounds (cachedImageFrameBuffer.getWidth(), cachedImageFrameBuffer.getHeight());
-        context.copyTexture (cacheBounds, cacheBounds, cacheBounds.getWidth(), cacheBounds.getHeight(), false);
+        const Rectangle<int> textureBounds (cachedImageFrameBuffer.getTextureWidth(), cachedImageFrameBuffer.getTextureHeight());
+        context.copyTexture (cacheBounds, textureBounds, cacheBounds.getWidth(), cacheBounds.getHeight(), false);
         glBindTexture (GL_TEXTURE_2D, 0);
         JUCE_CHECK_OPENGL_ERROR
     }
@@ -697,7 +709,7 @@ public:
         gl::loadFunctions();
 
        #if JUCE_DEBUG && ! JUCE_DISABLE_ASSERTIONS
-        if (getOpenGLVersion() >= Version { 4, 3 } && glDebugMessageCallback != nullptr)
+        if (getOpenGLVersion() >= Version { 4, 3 } && OpenGLHelpers::isFunctionAvailable (glDebugMessageCallback))
         {
             glEnable (GL_DEBUG_OUTPUT);
             glEnable (GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -725,7 +737,7 @@ public:
         {
             JUCE_CHECK_OPENGL_ERROR
             shadersAvailable = OpenGLShaderProgram::getLanguageVersion() > 0;
-            clearGLError();
+            OpenGLHelpers::resetErrorState();
         }
         else
         {
@@ -775,7 +787,7 @@ public:
             NativeContext::Locker locker (*nativeContext);
 
             (*work) (context);
-            clearGLError();
+            clearDebugGLError();
         }
     }
 
@@ -790,7 +802,7 @@ public:
             if (context.isActive() && workerToUse != nullptr)
             {
                 (*workerToUse) (context);
-                clearGLError();
+                clearDebugGLError();
             }
 
             return;
@@ -1201,7 +1213,23 @@ public:
         }
     }
 
-    using ComponentMovementWatcher::componentMovedOrResized;
+    void componentMovedOrResized (Component& changedComponent, bool wasMoved, bool wasResized) override
+    {
+        ComponentMovementWatcher::componentMovedOrResized (changedComponent, wasMoved, wasResized);
+
+       #if JUCE_LINUX || JUCE_BSD
+        // A top-level resize can change the visible part of the child surface
+        auto* comp = getComponent();
+        const auto waylandTopLevelResized = comp != nullptr
+                                         && isWaylandComponentPeer (comp->getPeer())
+                                         && wasResized
+                                         && &changedComponent != comp
+                                         && &changedComponent == comp->getTopLevelComponent();
+
+        if (waylandTopLevelResized && context.nativeContext != nullptr)
+            context.nativeContext->updateWindowPosition();
+       #endif
+    }
 
     void componentPeerChanged() override
     {
@@ -1883,7 +1911,7 @@ void OpenGLContext::copyTexture (const Rectangle<int>& targetClipArea,
         }
         else
         {
-            clearGLError();
+            OpenGLHelpers::resetErrorState();
         }
     }
     else

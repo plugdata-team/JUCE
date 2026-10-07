@@ -1,6 +1,60 @@
 # JUCE breaking changes
 
+# Version 9.0.3
+
+## Change
+
+SystemStats::isOperatingSystem64Bit() now reports whether the operating system
+is 64-bit rather than whether the current process is, matching the
+documentation. It can return true from a 32-bit build running on a 64-bit Linux
+or Android system, or on Windows on ARM.
+
+**Possible Issues**
+
+Code that used this function to determine the architecture of the current
+process may now behave differently when built for iOS, for 32-bit Linux or
+Android targets, or for 32-bit Windows targets running on ARM64.
+
+**Workaround**
+
+Use the JUCE_64BIT and JUCE_32BIT macros to determine how the current process
+was built.
+
+**Rationale**
+
+The function is documented as describing the operating system, and the macOS
+implementation has always done so, but the iOS, Linux and Android
+implementations were out of step, and the Windows implementation did not detect
+64-bit Windows on ARM from a 32-bit process.
+
+
 # Version 9.0.2
+
+## Change
+
+ThreadPool::addJob no longer provides separate std::function overloads for
+void and ThreadPoolJob::JobStatus return types. It now accepts a single
+callable template parameter that must return exactly void or
+ThreadPoolJob::JobStatus.
+
+**Possible Issues**
+
+Code that previously passed a callable returning a type other than void or
+ThreadPoolJob::JobStatus (for example int or bool) will fail to compile. The
+return value was previously discarded via conversion to std::function<void()>.
+
+**Workaround**
+
+Change the callable so that it returns void, or returns a
+ThreadPoolJob::JobStatus to control whether the job should run again.
+
+**Rationale**
+
+The previous overloads were ambiguous for lambdas returning
+ThreadPoolJob::JobStatus, because std::function<void()> can be constructed from
+callables with non-void return types. Constraining the accepted return types
+removes that ambiguity and rejects accidental misuse at compile time.
+
 
 ## Change
 

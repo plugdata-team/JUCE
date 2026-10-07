@@ -44,7 +44,7 @@
 
   ID:                 juce_audio_formats
   vendor:             juce
-  version:            9.0.2
+  version:            9.0.3
   name:               JUCE audio file format codecs
   description:        Classes for reading and writing various audio file formats.
   website:            http://www.juce.com/juce
@@ -83,7 +83,7 @@
     If you disable this, you might also want to set a value for JUCE_FLAC_INCLUDE_PATH, to
     specify the path where your flaclib headers live.
 
-    This config option only has an effect with JUCE_USE_FLAC is enabled.
+    This config option only has an effect when JUCE_USE_FLAC is enabled.
 */
 #ifndef JUCE_INCLUDE_FLAC_CODE
  #define JUCE_INCLUDE_FLAC_CODE 1
@@ -100,6 +100,30 @@
 */
 #ifndef JUCE_USE_OGGVORBIS
  #define JUCE_USE_OGGVORBIS 1
+#endif
+
+/** Config: JUCE_USE_OPUS
+    Enables the Opus audio codec classes (available on all platforms).
+    If your app doesn't need to read or write Opus files, you might want to disable this to
+    reduce the size of your codebase and build time.
+*/
+#ifndef JUCE_USE_OPUS
+ #define JUCE_USE_OPUS 1
+#endif
+
+/** Config: JUCE_INCLUDE_OPUS_CODE
+    This can be used to disable Juce's embedded 3rd-party opus, opusfile and libopusenc code.
+    You might need to tweak this if you're linking to external copies of these libraries in
+    your app, but for normal apps, this option should be left alone.
+
+    The embedded libogg is compiled when this option or JUCE_INCLUDE_OGGVORBIS_CODE is
+    enabled. If only one of them is, it may collide with the libogg that the external
+    library depends on.
+
+    This config option only has an effect with JUCE_USE_OPUS is enabled.
+*/
+#ifndef JUCE_INCLUDE_OPUS_CODE
+ #define JUCE_INCLUDE_OPUS_CODE 1
 #endif
 
 /** Config: JUCE_USE_MP3AUDIOFORMAT
@@ -146,6 +170,7 @@
 #include "codecs/juce_LAMEEncoderAudioFormat.h"
 #include "codecs/juce_MP3AudioFormat.h"
 #include "codecs/juce_OggVorbisAudioFormat.h"
+#include "codecs/juce_OpusAudioFormat.h"
 #include "codecs/juce_WavAudioFormat.h"
 #include "codecs/juce_WindowsMediaAudioFormat.h"
 #include "sampler/juce_Sampler.h"

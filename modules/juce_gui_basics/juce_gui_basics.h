@@ -44,7 +44,7 @@
 
   ID:                 juce_gui_basics
   vendor:             juce
-  version:            9.0.2
+  version:            9.0.3
   name:               JUCE GUI core classes
   description:        Basic user-interface components and related classes.
   website:            http://www.juce.com/juce
@@ -76,6 +76,13 @@
 */
 #ifndef JUCE_ENABLE_REPAINT_DEBUGGING
  #define JUCE_ENABLE_REPAINT_DEBUGGING 0
+#endif
+
+/** Config: JUCE_WAYLAND_PEER_DIAGNOSTICS
+    Enables an internal hook that reports Wayland peer state for debugging.
+*/
+#ifndef JUCE_WAYLAND_PEER_DIAGNOSTICS
+ #define JUCE_WAYLAND_PEER_DIAGNOSTICS 0
 #endif
 
 /** Config: JUCE_USE_XRANDR
@@ -401,6 +408,10 @@ namespace juce
 
   #include "native/juce_XWindowSystem_linux.h"
   #include "native/juce_XSymbols_linux.h"
+ #endif
+
+ #if JUCE_WAYLAND_PEER_DIAGNOSTICS
+  #include "native/juce_WaylandPeerDiagnostics_linux.h"
  #endif
 #endif
 

@@ -35,9 +35,17 @@
 namespace juce
 {
 
-static bool tryAllocTexture (int w, int h, GLenum type)
+struct TextureSize
+{
+    int width = 0, height = 0;
+};
+
+// The allocated texture may be larger than the requested size.
+static std::optional<TextureSize> tryAllocTexture (int w, int h, GLenum type)
 {
     JUCE_CHECK_OPENGL_ERROR
+
+    OpenGLHelpers::resetErrorState();
 
     for (const auto& [testWidth, testHeight] : { std::tuple (w, h),
                                                  std::tuple (nextPowerOfTwo (w), nextPowerOfTwo (h)) })
@@ -55,10 +63,10 @@ static bool tryAllocTexture (int w, int h, GLenum type)
         const GLenum error = glGetError();
 
         if (error == GL_NO_ERROR)
-            return true;
+            return TextureSize { testWidth, testHeight };
     }
 
-    return false;
+    return {};
 }
 
 /*  Used to detect when the GL context and associated resources (textures, framebuffers, etc.)
@@ -138,27 +146,29 @@ public:
             return true;
         }
 
-        const Rectangle<int> area (p->width, p->height);
+        const Rectangle<int> area { p->width, p->height };
+        const Rectangle<int> textureArea { p->textureWidth, p->textureHeight };
 
         if (! initialise (*other.pimpl->associatedContext, area.getWidth(), area.getHeight()))
             return false;
 
         jassert (associatedContext != nullptr);
 
+        const OpenGLTargetSaver targetSaver;
         auto* transientState = std::get_if<TransientState> (&state);
         transientState->bind();
-        const ScopeGuard unbinder { [transientState] { transientState->unbind(); }};
+        transientState->setViewportToContentArea();
 
        #if ! JUCE_ANDROID
         if (associatedContext->getProfile() == OpenGLProfile::compatibility)
             glEnable (GL_TEXTURE_2D);
 
-        clearGLError();
+        OpenGLHelpers::resetErrorState();
        #endif
         {
             const ScopedTextureBinding scopedTextureBinding;
             glBindTexture (GL_TEXTURE_2D, p->textureID);
-            associatedContext->copyTexture (area, area, area.getWidth(), area.getHeight(), false);
+            associatedContext->copyTexture (area, textureArea, area.getWidth(), area.getHeight(), false);
         }
 
         return true;
@@ -220,6 +230,22 @@ public:
         return 0;
     }
 
+    int getTextureWidth() const noexcept
+    {
+        if (auto* transientState = std::get_if<TransientState> (&state))
+            return transientState->textureWidth;
+
+        return 0;
+    }
+
+    int getTextureHeight() const noexcept
+    {
+        if (auto* transientState = std::get_if<TransientState> (&state))
+            return transientState->textureHeight;
+
+        return 0;
+    }
+
     GLuint getFrameBufferID() const noexcept
     {
         if (auto* transientState = std::get_if<TransientState> (&state))
@@ -271,8 +297,13 @@ public:
         const ScopeGuard unbinder { [transientState] { transientState->unbind(); }};
 
         glPixelStorei (GL_PACK_ALIGNMENT, 4);
-        glReadPixels (area.getX(), area.getY(), area.getWidth(), area.getHeight(),
-                      JUCE_RGBA_FORMAT, GL_UNSIGNED_BYTE, target);
+        glReadPixels (area.getX(),
+                      area.getY() + transientState->getContentYOffsetInTexture(),
+                      area.getWidth(),
+                      area.getHeight(),
+                      JUCE_RGBA_FORMAT,
+                      GL_UNSIGNED_BYTE,
+                      target);
 
         if (order == RowOrder::fromTopDown)
         {
@@ -310,15 +341,26 @@ public:
         OpenGLTexture tex;
         tex.loadARGB (data, area.getWidth(), area.getHeight());
 
-        glViewport (0, 0, transientState->width, transientState->height);
-        associatedContext->copyTexture (area,
-                                        Rectangle<int> (area.getX(),
-                                                        area.getY(),
+        // loadARGB() puts the pixels in the bottom rows of a texture that may be larger than the
+        // area. Bottom-up data is drawn without flipping, so the texture's top edge is anchored
+        // above the target area by the height of the padding, which then falls outside the clip.
+        const auto flipVertically = order == RowOrder::fromTopDown;
+        const auto padding = flipVertically ? 0 : tex.getHeight() - area.getHeight();
+
+        const Rectangle<int> targetArea { area.getX(),
+                                          transientState->height - area.getBottom(),
+                                          area.getWidth(),
+                                          area.getHeight() };
+
+        transientState->setViewportToContentArea();
+        associatedContext->copyTexture (targetArea,
+                                        Rectangle<int> (targetArea.getX(),
+                                                        targetArea.getY() - padding,
                                                         tex.getWidth(),
                                                         tex.getHeight()),
                                         transientState->width,
                                         transientState->height,
-                                        order == RowOrder::fromTopDown,
+                                        flipVertically,
                                         false);
 
         JUCE_CHECK_OPENGL_ERROR
@@ -352,19 +394,14 @@ private:
                         const bool wantsDepthBuffer,
                         const bool wantsStencilBuffer)
             : width (w),
-              height (h),
-              textureID (0),
-              frameBufferID (0),
-              depthOrStencilBuffer (0)
+              height (h)
         {
             // Framebuffer objects can only be created when the current thread has an active OpenGL
             // context. You'll need to create this object in one of the OpenGLContext's callbacks.
             jassert (OpenGLHelpers::isContextActive());
 
-           #if JUCE_WINDOWS || JUCE_LINUX || JUCE_BSD
-            if (gl::glGenFramebuffers == nullptr)
+            if (! OpenGLHelpers::isFunctionAvailable (gl::glGenFramebuffers))
                 return;
-           #endif
 
             gl::glGenFramebuffers (1, &frameBufferID);
             bind();
@@ -383,9 +420,13 @@ private:
                 glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
                 JUCE_CHECK_OPENGL_ERROR
 
-                [[maybe_unused]] const auto created = tryAllocTexture (width, height, GL_RGBA);
+                const auto allocatedSize = tryAllocTexture (width, height, GL_RGBA);
                 // Failed to create texture
-                jassert (created);
+                jassert (allocatedSize.has_value());
+
+                const auto allocated = allocatedSize.value_or (TextureSize{});
+                textureWidth  = allocated.width;
+                textureHeight = allocated.height;
 
                 JUCE_CHECK_OPENGL_ERROR
             }
@@ -405,8 +446,8 @@ private:
                 gl::glRenderbufferStorage (GL_RENDERBUFFER,
                                            (wantsDepthBuffer && wantsStencilBuffer) ? (GLenum) GL_DEPTH24_STENCIL8
                                                                                     : depthComponentConstant,
-                                           width,
-                                           height);
+                                           textureWidth,
+                                           textureHeight);
 
                 GLint params = 0;
                 gl::glGetRenderbufferParameteriv (GL_RENDERBUFFER, GL_RENDERBUFFER_DEPTH_SIZE, &params);
@@ -436,7 +477,24 @@ private:
 
         bool createdOk() const
         {
-            return frameBufferID != 0 && textureID != 0;
+            return frameBufferID != 0 && textureID != 0 && textureWidth > 0 && textureHeight > 0;
+        }
+
+        /*  The texture may be larger than the framebuffer's nominal size. The content is
+            kept in the top-left corner of the texture (i.e. in the rows with the highest
+            y coordinates), which matches the layout that OpenGLTexture uses for images,
+            so a framebuffer's texture can be drawn using the same texture coordinates as
+            any other image texture. This is the offset of the bottom of the content area
+            from the bottom of the texture.
+        */
+        int getContentYOffsetInTexture() const noexcept
+        {
+            return textureHeight - height;
+        }
+
+        void setViewportToContentArea() const
+        {
+            glViewport (0, getContentYOffsetInTexture(), width, height);
         }
 
         void abandon()
@@ -460,7 +518,8 @@ private:
         }
 
         const int width, height;
-        GLuint textureID, frameBufferID, depthOrStencilBuffer;
+        int textureWidth = 0, textureHeight = 0;
+        GLuint textureID = 0, frameBufferID = 0, depthOrStencilBuffer = 0;
 
     private:
         GLint prevFramebuffer{};
@@ -588,6 +647,16 @@ int OpenGLFrameBuffer::getHeight() const noexcept
 GLuint OpenGLFrameBuffer::getTextureID() const noexcept
 {
     return pimpl->getTextureID();
+}
+
+int OpenGLFrameBuffer::getTextureWidth() const noexcept
+{
+    return pimpl->getTextureWidth();
+}
+
+int OpenGLFrameBuffer::getTextureHeight() const noexcept
+{
+    return pimpl->getTextureHeight();
 }
 
 bool OpenGLFrameBuffer::makeCurrentRenderingTarget()

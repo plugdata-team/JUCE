@@ -37,6 +37,7 @@ namespace juce
 
 ::Window juce_createKeyProxyWindow (ComponentPeer*);
 void juce_deleteKeyProxyWindow (::Window);
+ComponentPeer* getPeerFor (::Window);
 
 //==============================================================================
 enum
@@ -417,6 +418,10 @@ private:
                                                          InputOutput, CopyFromParent,
                                                          CWEventMask | CWBorderPixel | CWBackPixmap | CWOverrideRedirect,
                                                          &swa);
+
+        // The window id is handed to the embedded client, which may create its own window inside it
+        // on another X connection, so the window must exist on the server before the id escapes.
+        X11Symbols::getInstance()->xSync (dpy, False);
     }
 
     void removeClient()
@@ -453,6 +458,11 @@ private:
             return reinterpret_cast<Window> (peer->getNativeHandle());
 
         return {};
+    }
+
+    static bool isX11Peer (const ComponentPeer& peer)
+    {
+        return getPeerFor (reinterpret_cast<Window> (peer.getNativeHandle())) == &peer;
     }
 
     Display* getDisplay()   { return XWindowSystem::getInstance()->getDisplay(); }
@@ -534,6 +544,14 @@ private:
 
     void peerChanged (ComponentPeer* newPeer)
     {
+        if (newPeer != nullptr && ! isX11Peer (*newPeer))
+        {
+            // This component was added to a Wayland window, which cannot contain an X11 window.
+            // Create the window with the ComponentPeer::windowRequiresX11 style flag.
+            jassertfalse;
+            newPeer = nullptr;
+        }
+
         if (newPeer != lastPeer)
         {
             if (lastPeer != nullptr)

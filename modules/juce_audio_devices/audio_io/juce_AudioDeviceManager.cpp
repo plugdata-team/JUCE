@@ -104,12 +104,22 @@ public:
     void audioDeviceIOCallbackWithContext (const float* const* inputChannelData,
                                            [[maybe_unused]] int numInputChannels,
                                            float* const* outputChannelData,
-                                           [[maybe_unused]] int numOutputChannels,
+                                           int numOutputChannels,
                                            int numSamples,
                                            const AudioIODeviceCallbackContext& context) override
     {
         jassert ((int) storedInputChannels.size()  == numInputChannels);
         jassert ((int) storedOutputChannels.size() == numOutputChannels);
+
+        // During device reconfiguration JACK can transiently report a buffer size of 0.
+        if (maximumSize <= 0)
+        {
+            for (int i = 0; i < numOutputChannels; ++i)
+                if (auto* channel = outputChannelData[i])
+                    zeromem (channel, (size_t) numSamples * sizeof (*channel));
+
+            return;
+        }
 
         int position = 0;
 
@@ -817,6 +827,14 @@ static T getNonZeroOrDefault (T value, T defaultValue)
     return value;
 }
 
+static double getDefaultRequestedSampleRate (AudioIODevice& device)
+{
+    if (const auto current = device.getCurrentSampleRate(); current > 0.0)
+        return current;
+
+    return 44100.0;
+}
+
 String AudioDeviceManager::setAudioDeviceSetup (const AudioDeviceSetup& newSetup,
                                                 bool treatAsChosenDevice)
 {
@@ -893,7 +911,7 @@ String AudioDeviceManager::setAudioDeviceSetup (const AudioDeviceSetup& newSetup
     }
 
     currentSetup.sampleRate = findNearestValue (Span { currentAudioDevice->getAvailableSampleRates() },
-                                                getNonZeroOrDefault (currentSetup.sampleRate, currentAudioDevice->getCurrentSampleRate()));
+                                                getNonZeroOrDefault (currentSetup.sampleRate, getDefaultRequestedSampleRate (*currentAudioDevice)));
 
     const auto requestedBufferSize = getNonZeroOrDefault (currentSetup.bufferSize, currentAudioDevice->getDefaultBufferSize());
     const auto preBufferSize = findNearestValue (Span { currentAudioDevice->getAvailableBufferSizes() }, requestedBufferSize);

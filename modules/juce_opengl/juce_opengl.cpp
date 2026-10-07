@@ -222,10 +222,10 @@ static void checkGLError ([[maybe_unused]] const char* file, [[maybe_unused]] co
  #define JUCE_CHECK_OPENGL_ERROR ;
 #endif
 
-static void clearGLError() noexcept
+static void clearDebugGLError() noexcept
 {
    #if JUCE_DEBUG
-    while (glGetError() != GL_NO_ERROR) {}
+    OpenGLHelpers::resetErrorState();
    #endif
 }
 
@@ -287,6 +287,9 @@ JUCE_IMPL_WGL_EXTENSION_FUNCTION (wglCreateContextAttribsARB)
 
 #elif JUCE_LINUX || JUCE_BSD
  #include <juce_gui_basics/native/juce_ScopedWindowAssociation_linux.h>
+ #include <juce_gui_basics/native/juce_WaylandOpenGLSurface_linux.h>
+ #include "native/juce_X11OpenGLWindow_linux.h"
+ #include "native/juce_WaylandOpenGLWindow_linux.h"
  #include "native/juce_OpenGL_linux.h"
 
 #elif JUCE_ANDROID

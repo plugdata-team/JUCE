@@ -79,12 +79,21 @@ struct CachedImageList final : public ReferenceCountedObject,
         {
             if (auto fb = OpenGLImageType::getFrameBufferFrom (image))
             {
+                const auto textureWidth  = fb->getTextureWidth();
+                const auto textureHeight = fb->getTextureHeight();
+
+                if (textureWidth <= 0 || textureHeight <= 0)
+                {
+                    jassertfalse;
+                    return {};
+                }
+
                 TextureInfo t;
                 t.textureID = fb->getTextureID();
                 t.imageWidth = image.getWidth();
                 t.imageHeight = image.getHeight();
-                t.fullWidthProportion  = 1.0f;
-                t.fullHeightProportion = 1.0f;
+                t.fullWidthProportion  = (float) t.imageWidth  / (float) textureWidth;
+                t.fullHeightProportion = (float) t.imageHeight / (float) textureHeight;
 
                 return t;
             }
@@ -464,36 +473,38 @@ struct Target
 
     Target (OpenGLContext& c, OpenGLFrameBuffer& fb, Point<int> origin) noexcept
         : context (c), frameBufferID (fb.getFrameBufferID()),
-          bounds (origin.x, origin.y, fb.getWidth(), fb.getHeight())
+          bounds (origin.x, origin.y, fb.getWidth(), fb.getHeight()),
+          viewportYOffset (fb.getTextureHeight() - fb.getHeight())
     {
         jassert (frameBufferID != 0); // trying to render into an uninitialised framebuffer object
     }
 
     Target (const Target& other) noexcept
-        : context (other.context), frameBufferID (other.frameBufferID), bounds (other.bounds)
+        : context (other.context), frameBufferID (other.frameBufferID), bounds (other.bounds),
+          viewportYOffset (other.viewportYOffset)
     {}
 
     Target& operator= (const Target& other) noexcept
     {
         frameBufferID = other.frameBufferID;
         bounds = other.bounds;
+        viewportYOffset = other.viewportYOffset;
         return *this;
     }
 
     void makeActive() const noexcept
     {
-       #if JUCE_WINDOWS
-        if (context.extensions.glBindFramebuffer != nullptr)
-       #endif
+        if (OpenGLHelpers::isFunctionAvailable (context.extensions.glBindFramebuffer))
             context.extensions.glBindFramebuffer (GL_FRAMEBUFFER, frameBufferID);
 
-        glViewport (0, 0, bounds.getWidth(), bounds.getHeight());
+        glViewport (0, viewportYOffset, bounds.getWidth(), bounds.getHeight());
         glDisable (GL_DEPTH_TEST);
     }
 
     OpenGLContext& context;
     GLuint frameBufferID;
     Rectangle<int> bounds;
+    int viewportYOffset = 0;
 };
 
 //==============================================================================
@@ -1529,7 +1540,7 @@ struct StateHelpers
             glGetIntegerv (GL_MAX_ELEMENTS_INDICES, &maxIndices);
             glGetIntegerv (GL_MAX_ELEMENTS_VERTICES, &maxVertices);
 
-            clearGLError();
+            OpenGLHelpers::resetErrorState();
 
             if (maxIndices <= 0 || maxVertices <= 0)
                 return defaultNumQuads;
@@ -2114,7 +2125,7 @@ struct NonShaderContext final : public LowLevelGraphicsSoftwareRenderer
         if (target.context.getProfile() == OpenGLProfile::compatibility)
             glEnable (GL_TEXTURE_2D);
 
-        clearGLError();
+        OpenGLHelpers::resetErrorState();
        #endif
 
         ViewportRestorer viewportRestorer;
@@ -2131,9 +2142,7 @@ struct NonShaderContext final : public LowLevelGraphicsSoftwareRenderer
                                     false);
         glBindTexture (GL_TEXTURE_2D, 0);
 
-       #if JUCE_WINDOWS
-        if (target.context.extensions.glBindFramebuffer != nullptr)
-       #endif
+        if (OpenGLHelpers::isFunctionAvailable (target.context.extensions.glBindFramebuffer))
             target.context.extensions.glBindFramebuffer (GL_FRAMEBUFFER, previousFrameBufferTarget);
 
         JUCE_CHECK_OPENGL_ERROR
