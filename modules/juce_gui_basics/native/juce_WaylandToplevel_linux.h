@@ -74,6 +74,7 @@ public:
         bool fullScreen = false;
         bool activated = false;
         bool suspended = false;
+        bool maximised = false;
         bool maximisedOrTiled = false;
         // Empty when the backend cannot report whether an interactive resize is active.
         std::optional<bool> resizing;
@@ -103,6 +104,7 @@ public:
     virtual void setSizeConstraints (WaylandSizeConstraints) = 0;
     virtual void commitSizeConstraints (Point<int> contentSize) = 0;
     virtual void requestMinimise() = 0;
+    virtual void requestMaximised (bool shouldBeMaximised) = 0;
     virtual void requestFullScreen (bool shouldBeFullScreen) = 0;
 
     virtual void requestInteractiveMove (wl_seat&, uint32_t serial) = 0;

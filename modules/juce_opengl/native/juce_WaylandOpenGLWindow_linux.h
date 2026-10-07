@@ -146,6 +146,18 @@ public:
         return true;
     }
 
+    void applyPendingSize()
+    {
+        if (pendingSize == windowSize)
+            return;
+
+        // Applied before a frame starts, so that the first frame after a resize is rendered
+        // into a buffer of the new size. Only resizing after each swap leaves that frame
+        // drawn at the new size into a buffer of the old size.
+        windowSize = pendingSize;
+        symbols->wlEglWindowResize (window.get(), windowSize.x, windowSize.y, 0, 0);
+    }
+
     bool finishSwap()
     {
         attachedBufferSize = windowSize;
@@ -153,9 +165,10 @@ public:
         if (pendingSize == windowSize)
             return false;
 
-        // Resize between frames so the next buffer and its crop use the new size.
-        windowSize = pendingSize;
-        symbols->wlEglWindowResize (window.get(), windowSize.x, windowSize.y, 0, 0);
+        // The size changed while this frame was rendering (or the context is externally
+        // driven, so nothing resized it before the frame). Resize between frames so the
+        // next buffer and its crop use the new size.
+        applyPendingSize();
         return true;
     }
 

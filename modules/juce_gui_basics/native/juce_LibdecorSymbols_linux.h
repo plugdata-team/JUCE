@@ -93,6 +93,14 @@ public:
                                      (libdecor_frame*),
                                      void)
 
+    JUCE_GENERATE_LIBDECOR_FUNCTION (LibdecorFrameSetMaximized, libdecorFrameSetMaximized,
+                                     (libdecor_frame*),
+                                     void)
+
+    JUCE_GENERATE_LIBDECOR_FUNCTION (LibdecorFrameUnsetMaximized, libdecorFrameUnsetMaximized,
+                                     (libdecor_frame*),
+                                     void)
+
     JUCE_GENERATE_LIBDECOR_FUNCTION (LibdecorFrameSetFullscreen, libdecorFrameSetFullscreen,
                                      (libdecor_frame*, wl_output*),
                                      void)

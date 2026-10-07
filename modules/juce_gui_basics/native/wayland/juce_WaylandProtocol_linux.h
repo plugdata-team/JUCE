@@ -447,6 +447,8 @@ void xdgToplevelSetMaxSize (xdg_toplevel*, int32_t width, int32_t height);
 void xdgToplevelSetMinSize (xdg_toplevel*, int32_t width, int32_t height);
 void xdgToplevelDestroy (xdg_toplevel*);
 void xdgToplevelSetMinimized (xdg_toplevel*);
+void xdgToplevelSetMaximized (xdg_toplevel*);
+void xdgToplevelUnsetMaximized (xdg_toplevel*);
 void xdgToplevelSetFullscreen (xdg_toplevel*);
 void xdgToplevelUnsetFullscreen (xdg_toplevel*);
 

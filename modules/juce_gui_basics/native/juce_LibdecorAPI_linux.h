@@ -152,6 +152,8 @@ void frameSetAppId (libdecor_frame*, StringRef appId);
 void frameSetMinContentSize (libdecor_frame*, Point<int> size);
 void frameSetMaxContentSize (libdecor_frame*, Point<int> size);
 void frameSetMinimized (libdecor_frame*);
+void frameSetMaximized (libdecor_frame*);
+void frameUnsetMaximized (libdecor_frame*);
 void frameSetFullscreen (libdecor_frame*, wl_output*);
 void frameUnsetFullscreen (libdecor_frame*);
 void frameMove (libdecor_frame*, wl_seat*, uint32_t serial);

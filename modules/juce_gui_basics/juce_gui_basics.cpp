@@ -256,6 +256,7 @@
  #include "native/juce_WaylandSubsurface_linux.h"
  #include "native/juce_WaylandSurfacePositionHistory_linux.h"
  #include "native/juce_WaylandOpenGLSurface_linux.h"
+ #include "native/juce_WaylandWindowState_linux.h"
  #include "native/juce_WaylandToplevel_linux.h"
  #include "native/juce_WaylandToplevelRelationship_linux.h"
  #include "native/juce_LibdecorSymbols_linux.cpp"

@@ -290,6 +290,14 @@ public:
         WaylandProtocol::xdgToplevelSetMinimized (xdgToplevel.get());
     }
 
+    void requestMaximised (bool shouldBeMaximised) override
+    {
+        if (shouldBeMaximised)
+            WaylandProtocol::xdgToplevelSetMaximized (xdgToplevel.get());
+        else
+            WaylandProtocol::xdgToplevelUnsetMaximized (xdgToplevel.get());
+    }
+
     void requestFullScreen (bool shouldBeFullScreen) override
     {
         if (shouldBeFullScreen)
@@ -338,6 +346,7 @@ private:
             hasState (WaylandProtocol::xdgToplevelStateFullscreen),
             hasState (WaylandProtocol::xdgToplevelStateActivated),
             hasState (WaylandProtocol::xdgToplevelStateSuspended),
+            hasState (WaylandProtocol::xdgToplevelStateMaximized),
             isMaximisedOrTiled(),
             hasState (WaylandProtocol::xdgToplevelStateResizing)
         };
@@ -583,6 +592,14 @@ public:
         LibdecorAPI::frameSetMinimized (libdecorFrame.get());
     }
 
+    void requestMaximised (bool shouldBeMaximised) override
+    {
+        if (shouldBeMaximised)
+            LibdecorAPI::frameSetMaximized (libdecorFrame.get());
+        else
+            LibdecorAPI::frameUnsetMaximized (libdecorFrame.get());
+    }
+
     void requestFullScreen (bool shouldBeFullScreen) override
     {
         if (shouldBeFullScreen)
@@ -629,6 +646,7 @@ private:
             hasWindowState (libdecorWindowStateFullscreen),
             hasWindowState (libdecorWindowStateActive),
             hasWindowState (libdecorWindowStateSuspended),
+            hasWindowState (libdecorWindowStateMaximized),
             isMaximisedOrTiled(),
             // Configurations do not expose the xdg-shell resizing state.
             std::nullopt

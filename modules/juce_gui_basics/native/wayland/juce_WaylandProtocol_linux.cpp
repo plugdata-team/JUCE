@@ -1338,6 +1338,16 @@ void xdgToplevelSetMinimized (xdg_toplevel* toplevel)
     WaylandClientSymbols::getInstance()->wl_proxy_marshal_flags (proxy (toplevel), toUnderlyingType (XdgToplevelRequest::setMinimized), nullptr, getVersion (proxy (toplevel)), 0);
 }
 
+void xdgToplevelSetMaximized (xdg_toplevel* toplevel)
+{
+    WaylandClientSymbols::getInstance()->wl_proxy_marshal_flags (proxy (toplevel), toUnderlyingType (XdgToplevelRequest::setMaximized), nullptr, getVersion (proxy (toplevel)), 0);
+}
+
+void xdgToplevelUnsetMaximized (xdg_toplevel* toplevel)
+{
+    WaylandClientSymbols::getInstance()->wl_proxy_marshal_flags (proxy (toplevel), toUnderlyingType (XdgToplevelRequest::unsetMaximized), nullptr, getVersion (proxy (toplevel)), 0);
+}
+
 void xdgToplevelSetFullscreen (xdg_toplevel* toplevel)
 {
     WaylandClientSymbols::getInstance()->wl_proxy_marshal_flags (proxy (toplevel), toUnderlyingType (XdgToplevelRequest::setFullscreen), nullptr, getVersion (proxy (toplevel)), 0, (wl_output*) nullptr);

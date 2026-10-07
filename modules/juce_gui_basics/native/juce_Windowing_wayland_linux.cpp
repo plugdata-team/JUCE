@@ -569,6 +569,23 @@ public:
         return fullScreenState.isFullScreen();
     }
 
+    bool setMaximised (bool shouldBeMaximised)
+    {
+        auto* toplevel = getToplevel();
+
+        if (toplevel == nullptr)
+            return false;
+
+        toplevel->requestMaximised (shouldBeMaximised);
+        WaylandWindowSystem::getInstance()->flush();
+        return true;
+    }
+
+    bool isMaximised() const
+    {
+        return maximised;
+    }
+
     void startHostManagedResize (Point<int>, ResizableBorderComponent::Zone zone) override
     {
         if (updateToplevelSizeConstraints())
@@ -1360,6 +1377,7 @@ private:
 
         // The compositor discards all toplevel state on unmap.
         fullScreenState.toplevelDestroyed();
+        maximised = false;
         wantsMinimised = false;
         dialogOwner = nullptr;
     }
@@ -1872,6 +1890,7 @@ private:
         diagnostics.lastConfigureSuspended = info.suspended;
 
         fullScreenState.configureReceived (info.fullScreen);
+        maximised = info.maximised;
         configured = true;
 
         // xdg-shell has no unminimise event, so an activated configure means the compositor showed us again.
@@ -2427,6 +2446,9 @@ private:
     bool suspended = false;
     bool hasCommittedBuffer = false;
     bool wantsMinimised = false;
+
+    // As last configured, so it changes together with the size that goes with it.
+    bool maximised = false;
     std::optional<WaylandSurfaceScale::Update> configureScaleUpdate;
     WaylandResizeAxesTracker resizeAxesTracker;
     WaylandSurfaceScale surfaceScale;
@@ -2537,6 +2559,22 @@ ComponentPeer* createWaylandComponentPeer (Component& component,
 bool isWaylandComponentPeer (const ComponentPeer* peer)
 {
     return dynamic_cast<const WaylandComponentPeer*> (peer) != nullptr;
+}
+
+bool setWaylandWindowMaximised (ComponentPeer& peer, bool shouldBeMaximised)
+{
+    if (auto* waylandPeer = dynamic_cast<WaylandComponentPeer*> (&peer))
+        return waylandPeer->setMaximised (shouldBeMaximised);
+
+    return false;
+}
+
+bool isWaylandWindowMaximised (const ComponentPeer& peer)
+{
+    if (auto* waylandPeer = dynamic_cast<const WaylandComponentPeer*> (&peer))
+        return waylandPeer->isMaximised();
+
+    return false;
 }
 
 //==============================================================================

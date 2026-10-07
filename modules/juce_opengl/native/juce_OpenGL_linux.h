@@ -408,6 +408,21 @@ public:
         return true;
     }
 
+    // Called on the render thread before the context is activated for a frame.
+    void prepareForRender()
+    {
+        auto* wayland = std::get_if<WaylandOpenGLWindow> (&nativeWindow);
+
+        // EGL picks up the size for the next back buffer when the context is made current,
+        // so a resize only applies to this frame if it happens before that. If the context
+        // is already current, finishSwap() applies the resize between frames instead.
+        if (wayland == nullptr || isActive())
+            return;
+
+        const std::scoped_lock lock { waylandWindowMutex };
+        wayland->applyPendingSize();
+    }
+
     void setFrameReadyCallback (std::function<void()> callback)
     {
         if (auto* wayland = std::get_if<WaylandOpenGLWindow> (&nativeWindow))

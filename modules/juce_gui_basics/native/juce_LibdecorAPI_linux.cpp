@@ -153,6 +153,18 @@ void frameSetMinimized (libdecor_frame* frame)
         symbols->libdecorFrameSetMinimized (frame);
 }
 
+void frameSetMaximized (libdecor_frame* frame)
+{
+    if (auto* symbols = getUsableLibdecorSymbols())
+        symbols->libdecorFrameSetMaximized (frame);
+}
+
+void frameUnsetMaximized (libdecor_frame* frame)
+{
+    if (auto* symbols = getUsableLibdecorSymbols())
+        symbols->libdecorFrameUnsetMaximized (frame);
+}
+
 void frameSetFullscreen (libdecor_frame* frame, wl_output* output)
 {
     if (auto* symbols = getUsableLibdecorSymbols())

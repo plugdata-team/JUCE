@@ -456,6 +456,10 @@ public:
         {
             NativeContext::Locker locker (*nativeContext);
 
+           #if JUCE_LINUX || JUCE_BSD
+            nativeContext->prepareForRender();
+           #endif
+
             if (! contextActivator.activate (context))
                 return RenderStatus::noWork;
 
