@@ -563,10 +563,14 @@ struct MenuWindow final : public Component, private AsyncUpdater
 
         if (canScroll())
         {
+            const auto shadow = getShadowMargin();
+
             if (isTopScrollZoneActive())
             {
+                Graphics::ScopedSaveState state (g);
+                g.setOrigin (shadow, shadow);
                 lf.drawPopupMenuUpDownArrowWithOptions (g,
-                                                        getWidth(),
+                                                        getWidth() - shadow * 2,
                                                         PopupMenuSettings::scrollZone,
                                                         true,
                                                         options);
@@ -574,14 +578,26 @@ struct MenuWindow final : public Component, private AsyncUpdater
 
             if (isBottomScrollZoneActive())
             {
-                g.setOrigin (0, getHeight() - PopupMenuSettings::scrollZone);
+                Graphics::ScopedSaveState state (g);
+                g.setOrigin (shadow, getHeight() - shadow - PopupMenuSettings::scrollZone);
                 lf.drawPopupMenuUpDownArrowWithOptions (g,
-                                                        getWidth(),
+                                                        getWidth() - shadow * 2,
                                                         PopupMenuSettings::scrollZone,
                                                         false,
                                                         options);
             }
         }
+    }
+
+    int getShadowMargin() const
+    {
+        return getLookAndFeel().getPopupMenuShadowMarginWithOptions (options);
+    }
+
+    // The shadow margin isn't part of the menu: clicks there fall through, and hovering it counts as leaving the menu
+    bool hitTest (int x, int y) override
+    {
+        return getLocalBounds().reduced (getShadowMargin()).contains (x, y);
     }
 
     //==============================================================================
@@ -967,28 +983,35 @@ struct MenuWindow final : public Component, private AsyncUpdater
         if (auto* pc = options.getParentComponent())
             target = pc->getLocalArea (nullptr, target).constrainedWithin (parentArea);
 
-        auto maxMenuHeight = parentArea.getHeight() - 24;
+        const auto shadow = getShadowMargin();
+        auto maxMenuHeight = parentArea.getHeight() - 24 + shadow * 2;
 
         int x, y, widthToUse, heightToUse;
-        layoutMenuItems (parentArea.getWidth() - 24, maxMenuHeight, widthToUse, heightToUse);
+        layoutMenuItems (parentArea.getWidth() - 24 + shadow * 2, maxMenuHeight, widthToUse, heightToUse);
 
         if (alignToRectangle)
         {
-            x = target.getX();
+            x = target.getX() - shadow;
 
             auto spaceUnder = parentArea.getBottom() - target.getBottom();
             auto spaceOver = target.getY() - parentArea.getY();
             auto bufferHeight = 30;
 
+            const auto visibleHeight = heightToUse - shadow * 2;
+
             if (options.getPreferredPopupDirection() == Options::PopupDirection::upwards)
-                y = (heightToUse < spaceOver - bufferHeight  || spaceOver >= spaceUnder) ? target.getY() - heightToUse
-                                                                                         : target.getBottom();
+                y = (visibleHeight < spaceOver - bufferHeight  || spaceOver >= spaceUnder) ? target.getY() - heightToUse + shadow
+                                                                                           : target.getBottom() - shadow;
             else
-                y = (heightToUse < spaceUnder - bufferHeight || spaceUnder >= spaceOver) ? target.getBottom()
-                                                                                         : target.getY() - heightToUse;
+                y = (visibleHeight < spaceUnder - bufferHeight || spaceUnder >= spaceOver) ? target.getBottom() - shadow
+                                                                                           : target.getY() - heightToUse + shadow;
         }
         else
         {
+            // A submenu's target is the parent's item, which also spans the parent's shadow margin
+            if (parent != nullptr)
+                target = target.reduced (parent->getShadowMargin(), 0);
+
             bool tendTowardsRight = target.getCentreX() < parentArea.getCentreX();
 
             if (parent != nullptr)
@@ -1022,8 +1045,8 @@ struct MenuWindow final : public Component, private AsyncUpdater
                 tendTowardsRight = (parentArea.getRight() - target.getRight()) >= (target.getX() - parentArea.getX());
             }
 
-            x = tendTowardsRight ? jmin (parentArea.getRight() - widthToUse - 4, target.getRight())
-                                 : jmax (parentArea.getX() + 4, target.getX() - widthToUse);
+            x = tendTowardsRight ? jmin (parentArea.getRight() - widthToUse - 4 + shadow, target.getRight() - shadow)
+                                 : jmax (parentArea.getX() + 4 - shadow, target.getX() - widthToUse + shadow);
 
             if (getLookAndFeel().getPopupMenuBorderSizeWithOptions (options) == 0) // workaround for dismissing the window on mouse up when border size is 0
                 x += tendTowardsRight ? 1 : -1;
@@ -1033,14 +1056,14 @@ struct MenuWindow final : public Component, private AsyncUpdater
                                                               : target.getY() - border;
         }
 
-        x = jmax (parentArea.getX() + 1, jmin (parentArea.getRight()  - (widthToUse  + 6), x));
-        y = jmax (parentArea.getY() + 1, jmin (parentArea.getBottom() - (heightToUse + 6), y));
+        x = jmax (parentArea.getX() + 1 - shadow, jmin (parentArea.getRight()  - (widthToUse  + 6) + shadow, x));
+        y = jmax (parentArea.getY() + 1 - shadow, jmin (parentArea.getBottom() - (heightToUse + 6) + shadow, y));
 
         windowPos.setBounds (x, y, widthToUse, heightToUse);
 
         // sets this flag if it's big enough to obscure any of its parent menus
         hideOnExit = parent != nullptr
-                      && parent->windowPos.intersects (windowPos.expanded (-4, -4));
+                      && parent->windowPos.reduced (parent->getShadowMargin()).intersects (windowPos.reduced (shadow).expanded (-4, -4));
     }
 
     void layoutMenuItems (const int maxMenuW, const int maxMenuH, int& width, int& height)
@@ -1109,7 +1132,7 @@ struct MenuWindow final : public Component, private AsyncUpdater
     int correctColumnWidths (const int maxMenuW)
     {
         auto totalW = std::accumulate (columnWidths.begin(), columnWidths.end(), 0);
-        const auto minWidth = jmin (maxMenuW, options.getMinimumWidth());
+        const auto minWidth = jmin (maxMenuW, options.getMinimumWidth() + getShadowMargin() * 2);
 
         if (totalW < minWidth)
         {
@@ -1707,10 +1730,12 @@ private:
              && isPositiveAndBelow (localMousePos.x, window.getWidth())
              && (isPositiveAndBelow (localMousePos.y, window.getHeight()) || source.isDragging()))
         {
-            if (window.isTopScrollZoneActive() && localMousePos.y < PopupMenuSettings::scrollZone)
+            const auto shadow = window.getShadowMargin();
+
+            if (window.isTopScrollZoneActive() && localMousePos.y < shadow + PopupMenuSettings::scrollZone)
                 return scroll (timeNow, -1);
 
-            if (window.isBottomScrollZoneActive() && localMousePos.y > window.getHeight() - PopupMenuSettings::scrollZone)
+            if (window.isBottomScrollZoneActive() && localMousePos.y > window.getHeight() - shadow - PopupMenuSettings::scrollZone)
                 return scroll (timeNow, 1);
         }
 
@@ -2569,5 +2594,7 @@ void PopupMenu::LookAndFeelMethods::drawPopupMenuUpDownArrow (Graphics&, int, in
 void PopupMenu::LookAndFeelMethods::getIdealPopupMenuItemSize (const String&, bool, int, int&, int&) {}
 
 int PopupMenu::LookAndFeelMethods::getPopupMenuBorderSize() { return 0; }
+
+int PopupMenu::LookAndFeelMethods::getPopupMenuShadowMarginWithOptions (const Options&) { return 0; }
 
 } // namespace juce

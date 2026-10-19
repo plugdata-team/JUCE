@@ -1044,6 +1044,14 @@ public:
 
         virtual int getPopupMenuBorderSizeWithOptions (const Options&) = 0;
 
+        /** Returns the width of a transparent margin around the menu that holds its drop shadow.
+
+            The margin is part of the border size. The menu is placed, sized and hit-tested as if its
+            window ended this far inside its real bounds, so a shadow doesn't move the menu away from
+            its target or swallow clicks next to it.
+        */
+        virtual int getPopupMenuShadowMarginWithOptions (const Options&);
+
         /** Implement this to draw some custom decoration between the columns of the popup menu.
 
             `getPopupMenuColumnSeparatorWidthWithOptions` must return a positive value in order
