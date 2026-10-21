@@ -981,8 +981,12 @@ struct MenuWindow final : public Component, private AsyncUpdater
         auto parentArea = getParentArea (target.getCentre()) / scaleFactor;
 
         if (auto* pc = options.getParentComponent())
-            target = pc->getLocalArea (nullptr, target).constrainedWithin (parentArea);
-
+        {
+            target = pc->getLocalArea (nullptr, target);
+            if (parent == nullptr)
+                target = target.constrainedWithin (parentArea);
+        }
+        
         const auto shadow = getShadowMargin();
         auto maxMenuHeight = parentArea.getHeight() - 24 + shadow * 2;
 
