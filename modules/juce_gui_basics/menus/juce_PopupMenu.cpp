@@ -952,7 +952,7 @@ struct MenuWindow final : public Component, private AsyncUpdater
     }
 
     //==============================================================================
-    Rectangle<int> getParentArea (Point<int> targetPoint, Component* relativeTo = nullptr)
+    Rectangle<int> getParentArea (Point<int> targetPoint, Component* relativeTo = nullptr, bool leaveRoomForBorder = true)
     {
         if (relativeTo != nullptr)
             targetPoint = relativeTo->localPointToGlobal (targetPoint);
@@ -967,9 +967,11 @@ struct MenuWindow final : public Component, private AsyncUpdater
 
         if (auto* pc = options.getParentComponent())
         {
+            const auto border = leaveRoomForBorder ? getLookAndFeel().getPopupMenuBorderSizeWithOptions (options) - getShadowMargin() : 0;
+
             return pc->getLocalArea (nullptr,
                                      pc->getScreenBounds().toFloat()
-                                           .reduced ((float) getLookAndFeel().getPopupMenuBorderSizeWithOptions (options))
+                                           .reduced ((float)border)
                                            .getIntersection (parentArea)).getLargestIntegerWithin();
         }
 
@@ -978,15 +980,15 @@ struct MenuWindow final : public Component, private AsyncUpdater
 
     void calculateWindowPos (Rectangle<int> target, const bool alignToRectangle)
     {
-        auto parentArea = getParentArea (target.getCentre()) / scaleFactor;
-
+        const auto targetCentre = target.getCentre();
         if (auto* pc = options.getParentComponent())
         {
             target = pc->getLocalArea (nullptr, target);
             if (parent == nullptr)
-                target = target.constrainedWithin (parentArea);
+                target = target.constrainedWithin (getParentArea (targetCentre, nullptr, false) / scaleFactor);
         }
-        
+
+        auto parentArea = getParentArea (targetCentre) / scaleFactor;
         const auto shadow = getShadowMargin();
         auto maxMenuHeight = parentArea.getHeight() - 24 + shadow * 2;
 
