@@ -560,8 +560,7 @@ Image detail::WindowingHelpers::createIconForFile (const File&)
 //==============================================================================
 void SystemClipboard::copyTextToClipboard (const String& text)
 {
-    [[UIPasteboard generalPasteboard] setValue: juceStringToNS (text)
-                             forPasteboardType: @"public.text"];
+    [[UIPasteboard generalPasteboard] setString: juceStringToNS (text)];
 }
 
 String SystemClipboard::getTextFromClipboard()

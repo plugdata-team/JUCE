@@ -704,7 +704,7 @@ private:
                                                     error: &error];
 
         if (error == nil)
-            setURLBookmark (juceUrl, (void*) bookmark);
+            setURLBookmark (juceUrl, (void*) [bookmark retain]); // URL::Bookmark releases it
         else
             jassertfalse;
     }

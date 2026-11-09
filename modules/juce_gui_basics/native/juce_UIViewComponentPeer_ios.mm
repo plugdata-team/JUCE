@@ -1075,8 +1075,9 @@ static bool attemptToConsumeKeys (JuceUIView* view, NSSet<UIPress*>* presses)
                 }
             }
 
-            return ((isEscape && owner->stringBeingComposed.isEmpty())
-                    || owner->findCurrentTextInputTarget() == nullptr)
+            return owner != nullptr
+                   && ((isEscape && owner->stringBeingComposed.isEmpty())
+                       || owner->findCurrentTextInputTarget() == nullptr)
                    && attemptToConsumeKeys (self, presses);
         }
 
@@ -1099,7 +1100,8 @@ static bool doKeysUp (UIViewComponentPeer* owner, NSSet<UIPress*>* presses, UIPr
             if (auto* key = [press key])
                 iOSGlobals::keysCurrentlyDown.setDown (getKeyCodeForKey (key), false);
 
-        return owner->findCurrentTextInputTarget() == nullptr && owner->handleKeyUpOrDown (false);
+        // The view can outlive its peer while UIKit still owes it a key-up or cancel
+        return owner != nullptr && owner->findCurrentTextInputTarget() == nullptr && owner->handleKeyUpOrDown (false);
     }
 
     return false;

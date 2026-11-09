@@ -352,10 +352,12 @@ struct iOSAudioIODevice::Pimpl final : public AsyncUpdater
         setAudioSessionActive (false);
 
         sessionHolder->activeDevices.add (this);
+        livePimpls.add (this);
     }
 
     ~Pimpl() override
     {
+        livePimpls.removeFirstMatchingValue (this);
         sessionHolder->activeDevices.removeFirstMatchingValue (this);
 
         close();
@@ -1402,7 +1404,21 @@ struct iOSAudioIODevice::Pimpl final : public AsyncUpdater
     static void dispatchAudioUnitPropertyChange (void* data, AudioUnit unit, AudioUnitPropertyID propertyID,
                                                  AudioUnitScope scope, AudioUnitElement element)
     {
-        static_cast<Pimpl*> (data)->handleAudioUnitPropertyChange (unit, propertyID, scope, element);
+        // CoreAudio can deliver this from its own queue after the device has been destroyed
+        // (seen at quit when running as an iPad app on macOS), so data may only be
+        // dereferenced on the message thread, once it's known to be alive.
+        const auto handle = [data, unit, propertyID, scope, element]
+        {
+            auto* pimpl = static_cast<Pimpl*> (data);
+
+            if (livePimpls.contains (pimpl))
+                pimpl->handleAudioUnitPropertyChange (unit, propertyID, scope, element);
+        };
+
+        if (MessageManager::existsAndIsCurrentThread())
+            handle();
+        else
+            MessageManager::callAsync (handle);
     }
 
     static double getTimestampForMIDI()
@@ -1595,6 +1611,7 @@ struct iOSAudioIODevice::Pimpl final : public AsyncUpdater
     Array<int> availableBufferSizes;
 
     static inline LruCache<String, Array<double>> deviceSampleRatesCache;
+    static inline Array<Pimpl*> livePimpls;
 
     bool interAppAudioConnected = false;
 
