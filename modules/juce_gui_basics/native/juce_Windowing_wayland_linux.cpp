@@ -229,8 +229,9 @@ class WaylandComponentPeer final : public ComponentPeer,
 public:
     WaylandComponentPeer (Component& comp,
                           int windowStyleFlags,
+                          Component* associated,
                           WaylandComponentPeer* explicitParent)
-        : ComponentPeer (comp, windowStyleFlags),
+        : ComponentPeer (comp, windowStyleFlags, associated),
           logicalBounds (comp.getBoundsInParent())
     {
         JUCE_ASSERT_MESSAGE_MANAGER_IS_LOCKED
@@ -2425,7 +2426,7 @@ private:
     static const wp_fractional_scale_v1_listener fractionalScaleListener;
     static const xdg_activation_token_v1_listener activationTokenListener;
 
-    friend ComponentPeer* createWaylandComponentPeer (Component&, int, void*);
+    friend ComponentPeer* createWaylandComponentPeer (Component&, int, Component*, void*);
 
     std::unique_ptr<CallbackState> callbackState;
 
@@ -2541,6 +2542,7 @@ std::unique_ptr<WaylandOpenGLSurface> WaylandComponentPeer::createOpenGLSurface 
 
 ComponentPeer* createWaylandComponentPeer (Component& component,
                                            int styleFlags,
+                                           Component* associated,
                                            void* nativeWindowToAttachTo)
 {
     auto* explicitParentSurface = static_cast<wl_surface*> (nativeWindowToAttachTo);
@@ -2553,6 +2555,7 @@ ComponentPeer* createWaylandComponentPeer (Component& component,
 
     return new WaylandComponentPeer (component,
                                      styleFlags,
+                                     associated,
                                      explicitParent);
 }
 
