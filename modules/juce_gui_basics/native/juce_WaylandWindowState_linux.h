@@ -54,4 +54,13 @@ JUCE_API bool setWaylandWindowMaximised (ComponentPeer&, bool shouldBeMaximised)
 */
 JUCE_API bool isWaylandWindowMaximised (const ComponentPeer&);
 
+/** Returns true if the compositor has configured a top-level Wayland window as maximised or
+    as tiled on at least one edge (half-tiled, snapped to a corner...).
+
+    Like isWaylandWindowMaximised() it changes in the same configure as the window's size. It lets
+    an application that draws its own shadow around the window know that the compositor now
+    manages the window's edges, so the shadow should be dropped.
+*/
+JUCE_API bool isWaylandWindowMaximisedOrTiled (const ComponentPeer&);
+
 } // namespace juce

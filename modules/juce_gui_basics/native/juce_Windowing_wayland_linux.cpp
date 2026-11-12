@@ -587,6 +587,11 @@ public:
         return maximised;
     }
 
+    bool isMaximisedOrTiled() const
+    {
+        return maximisedOrTiled;
+    }
+
     void startHostManagedResize (Point<int>, ResizableBorderComponent::Zone zone) override
     {
         if (updateToplevelSizeConstraints())
@@ -1379,6 +1384,7 @@ private:
         // The compositor discards all toplevel state on unmap.
         fullScreenState.toplevelDestroyed();
         maximised = false;
+        maximisedOrTiled = false;
         wantsMinimised = false;
         dialogOwner = nullptr;
     }
@@ -1892,6 +1898,7 @@ private:
 
         fullScreenState.configureReceived (info.fullScreen);
         maximised = info.maximised;
+        maximisedOrTiled = info.maximisedOrTiled;
         configured = true;
 
         // xdg-shell has no unminimise event, so an activated configure means the compositor showed us again.
@@ -2450,6 +2457,7 @@ private:
 
     // As last configured, so it changes together with the size that goes with it.
     bool maximised = false;
+    bool maximisedOrTiled = false;
     std::optional<WaylandSurfaceScale::Update> configureScaleUpdate;
     WaylandResizeAxesTracker resizeAxesTracker;
     WaylandSurfaceScale surfaceScale;
@@ -2576,6 +2584,14 @@ bool isWaylandWindowMaximised (const ComponentPeer& peer)
 {
     if (auto* waylandPeer = dynamic_cast<const WaylandComponentPeer*> (&peer))
         return waylandPeer->isMaximised();
+
+    return false;
+}
+
+bool isWaylandWindowMaximisedOrTiled (const ComponentPeer& peer)
+{
+    if (auto* waylandPeer = dynamic_cast<const WaylandComponentPeer*> (&peer))
+        return waylandPeer->isMaximisedOrTiled();
 
     return false;
 }
