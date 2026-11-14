@@ -300,6 +300,11 @@ public:
 
         // No repaint or listener notification is needed while the peer is being constructed.
         surfaceScale.setOutputScale (getScaleForSurfaceOutputs());
+
+        // The compositor sends a new surface its preferred scale only after a roundtrip, but a popup
+        // may need its scale straight away: PopupMenu sizes itself by comparing it with its target's.
+        if (const auto* owner = getPopupOwner())
+            surfaceScale.inheritPreferredScales (owner->surfaceScale);
         createScaleObjects();
         updateToplevelSizeConstraints();
         WaylandProtocol::wlSurfaceAddListener (surface.get(), &surfaceListener, callbackState.get());
@@ -1750,8 +1755,23 @@ private:
     {
         auto* windowSystem = WaylandWindowSystem::getInstance();
 
-        return surfaceOutputs.getLargestScale (windowSystem->getLargestOutputScale(),
+        // Until the surface has entered an output, guess the scale it will get there.
+        const auto* owner = getPopupOwner();
+        const auto scaleWithoutOutputs = owner != nullptr ? owner->surfaceScale.getIntegerCompositorScale()
+                                                          : windowSystem->getLargestOutputScale();
+
+        return surfaceOutputs.getLargestScale (scaleWithoutOutputs,
                                                [windowSystem] (wl_output* output) { return windowSystem->getScaleForOutput (output); });
+    }
+
+    // A popup almost always opens on the output of the window it belongs to, so until the compositor
+    // reports the popup's own scale, the popup takes that window's.
+    const WaylandComponentPeer* getPopupOwner() const
+    {
+        if (const auto* popupRole = getPopupRole(); popupRole != nullptr && popupRole->owner.has_value())
+            return popupRole->owner->toplevel.get();
+
+        return nullptr;
     }
 
     void updateOutputScale()

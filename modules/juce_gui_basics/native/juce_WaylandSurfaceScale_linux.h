@@ -64,6 +64,7 @@ public:
     Update setPreferredBufferScale (int scale);
     Update setOutputScale (int scale);
     Update setOverrideScale (std::optional<double> scale);
+    Update inheritPreferredScales (const WaylandSurfaceScale& other);
 
     std::optional<double> getOverrideScale() const;
     double getScaleFactor() const;
