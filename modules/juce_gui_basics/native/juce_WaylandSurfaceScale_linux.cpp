@@ -75,6 +75,20 @@ WaylandSurfaceScale::Update WaylandSurfaceScale::setOverrideScale (std::optional
     });
 }
 
+WaylandSurfaceScale::Update WaylandSurfaceScale::inheritPreferredScales (const WaylandSurfaceScale& other)
+{
+    return updateScaleState ([&]
+    {
+        // Stands in for the compositor's preferences until it sends this surface its own.
+        // The override belongs to the other surface's component, so it isn't taken.
+        if (! preferredFractionalScale120.has_value())
+            preferredFractionalScale120 = other.preferredFractionalScale120;
+
+        if (! preferredBufferScale.has_value())
+            preferredBufferScale = other.preferredBufferScale;
+    });
+}
+
 std::optional<double> WaylandSurfaceScale::getOverrideScale() const
 {
     return overrideScale;
@@ -430,6 +444,26 @@ public:
 
             state.setPreferredBufferScale (17);
             expectEquals (state.getScaleFactor(), 2.0);
+        });
+
+        testCase ("A surface uses inherited preferred scales until it receives its own", [&]
+        {
+            WaylandSurfaceScale owner;
+            owner.setOutputScale (2);
+            owner.setPreferredFractionalScale120 (144);
+            owner.setOverrideScale (1.5);
+
+            WaylandSurfaceScale state;
+            state.setOutputScale (2);
+            state.inheritPreferredScales (owner);
+            expectEquals (state.getScaleFactor(), 1.2);
+            expect (! state.getOverrideScale().has_value());
+
+            state.setPreferredFractionalScale120 (180);
+            expectEquals (state.getScaleFactor(), 1.5);
+
+            state.inheritPreferredScales (owner);
+            expectEquals (state.getScaleFactor(), 1.5);
         });
 
         // JUCE scale override.
